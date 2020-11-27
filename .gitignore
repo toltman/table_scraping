@@ -1,0 +1,5 @@
+*.xls
+*.xlsx
+*.R
+*.Rproj
+/tables
