@@ -1,5 +1,5 @@
 *.xls
 *.xlsx
-*.R
-*.Rproj
+.vscode
+.ipynb_checkpoints
 /tables
