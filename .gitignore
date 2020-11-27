@@ -2,4 +2,5 @@
 *.xlsx
 /.vscode
 /.ipynb_checkpoints
+/__pycached__
 /tables
