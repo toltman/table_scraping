@@ -10,9 +10,11 @@ class Table():
     ROW_LEVELS = 7
     COL_LEVELS = 7
 
-    def __init__(self, number, year):
-        self.number = number
+    def __init__(self, file_directory, year):
+        self.filename = file_directory
         self.year = year
+
+        self.number = re.search(r"tabn(\d{3}\.\d{2})\.xls", file_directory).group(1)
 
         # Read Excel workbook
         book = xlrd.open_workbook(self.filename, formatting_info=True)
@@ -29,11 +31,8 @@ class Table():
 
         # Table Column dataframe
         self.col_info = self.parse_col_info()
-
-    @property
-    def filename(self):
-        return f"tabn{self.number}.xls"
     
+
     @property
     def out_filename(self):
         digest_number = self.number.replace(".", "_")
@@ -278,9 +277,8 @@ if __name__ == "__main__":
     for filename in os.listdir(directory):
         if filename.endswith(".xls"):
             file_directory = os.path.join(directory, filename)
-            print(file_directory)
-            print(re.match(r"tabn(\d{3}\.\d{2})\.xls", filename).group(1))
-
+            table = Table(file_directory, "2019")
+            table.write_xlsx()
 
 
 
