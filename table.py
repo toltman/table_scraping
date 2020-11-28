@@ -17,9 +17,9 @@ class Table():
         self.out_filename = self.get_out_filename()
 
         # Read Excel workbook
-        book = xlrd.open_workbook(self.filename, formatting_info=True)
-        self.sheet = book.sheet_by_index(0)
-        self.font = book.font_list
+        self.book = xlrd.open_workbook(self.filename, formatting_info=True)
+        self.sheet = self.book.sheet_by_index(0)
+        self.font = self.book.font_list
 
         self.raw_df = pd.read_excel(self.filename, header=None)
 
@@ -32,21 +32,25 @@ class Table():
 
         # Table Column dataframe
         self.col_info = self.parse_col_info()
+
+        self.end_row = self.get_row_end()
     
 
     def get_id(self):
         tnum = ""
-        res = re.search(r"tabn(\d{3}\.\d{2})\.xls", file_directory)
+        res = re.search(r"tabn(\d{3}\.\d{2})\.xls", self.filename)
 
         if res:
             tnum = res.group(1)
 
         return tnum
 
+
     def get_out_filename(self):
         tab_id = self.id.replace(".", "_")
 
         return f"{self.year}_{tab_id}_activate_step1.xlsx"
+
 
     def get_title(self):
 
@@ -64,13 +68,15 @@ class Table():
         
         return title
 
+
     def get_title_lines(self):
         tlines = 1
 
         if re.match(r"\[.*\]", self.sheet.cell_value(1,0)):
-            self.title_lines = 2
+            tlines = 2
 
         return tlines
+
 
     def AA(self, num, string):
         """Recursively builds column index
@@ -90,6 +96,7 @@ class Table():
             
         return string
     
+
     def parse_table_info(self):
         """Returns table_info dataframe"""
 
@@ -251,6 +258,24 @@ class Table():
         ]
 
         return col_info
+
+    def get_row_end(self):
+
+        xf_list = self.book.xf_list
+
+        for row in range(self.header_lines + 2, self.sheet.nrows):
+            idx = self.sheet.cell_xf_index(row,0)
+            top_line_style = xf_list[idx].border.top_line_style
+            bottom_line_style = xf_list[idx].border.bottom_line_style
+
+            if top_line_style == 1:
+                return row - 1
+            elif bottom_line_style == 1:
+                return row
+
+        print("Error: No data end row")
+        return 0
+
 
     def write_xlsx(self):
         """Writes to output file"""
