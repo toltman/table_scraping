@@ -13,11 +13,8 @@ class Table():
     def __init__(self, file_directory, year):
         self.filename = file_directory
         self.year = year
-
-        self.tab_number = re.search(r"tabn(\d{3}\.\d{2})\.xls", file_directory).group(1)
-
-        _tab_number = self.tab_number.replace(".", "_")
-        self.out_filename = f"{self.year}_{_tab_number}_activate_step1.xlsx"
+        self.id = self.get_id()
+        self.out_filename = self.get_out_filename()
 
         # Read Excel workbook
         book = xlrd.open_workbook(self.filename, formatting_info=True)
@@ -26,13 +23,9 @@ class Table():
 
         self.raw_df = pd.read_excel(self.filename, header=None)
 
-        # Table title
         self.title = self.get_title()
-
-        # Title lines: the number of rows in the table title
-        self.title_lines = 1
-        if re.match(r"\[.*\]", self.sheet.cell_value(1,0)):
-            self.title_lines = 2
+        self.title_lines = self.get_title_lines()
+        self.header_lines = self.get_header_lines()
 
         # Table Info dataframe
         self.table_info = self.parse_table_info()
@@ -40,6 +33,20 @@ class Table():
         # Table Column dataframe
         self.col_info = self.parse_col_info()
     
+
+    def get_id(self):
+        tnum = ""
+        res = re.search(r"tabn(\d{3}\.\d{2})\.xls", file_directory)
+
+        if res:
+            tnum = res.group(1)
+
+        return tnum
+
+    def get_out_filename(self):
+        tab_id = self.id.replace(".", "_")
+
+        return f"{self.year}_{tab_id}_activate_step1.xlsx"
 
     def get_title(self):
 
@@ -49,11 +56,21 @@ class Table():
         # replace repeated whitespace with a single space
         title_cell = re.sub(" +", " ", title_cell)
 
-        title = re.match(
-            r"Table (\d{3}\.\d{2})\. (.*)", 
-            title_cell
-        ).group(2)
+        title = ""
+        res = re.match(r"Table (\d{3}\.\d{2})\. (.*)", title_cell)
+
+        if res:
+            title = res.group(2)
+        
         return title
+
+    def get_title_lines(self):
+        tlines = 1
+
+        if re.match(r"\[.*\]", self.sheet.cell_value(1,0)):
+            self.title_lines = 2
+
+        return tlines
 
     def AA(self, num, string):
         """Recursively builds column index
@@ -109,7 +126,7 @@ class Table():
         ]
 
         val_list = [
-            self.tab_number, 
+            self.id, 
             self.year, 
             self.title,
             headnote,
@@ -122,28 +139,15 @@ class Table():
         tb_info = pd.DataFrame(np.array([col_list, val_list]))
         return tb_info
 
-    def header_end(self):
-        """Returns the row number of the integer row"""
+    def get_header_lines(self):
+        """Returns the index of the last row of the header"""
 
-        sh = self.sheet
-    
-        for row in range(0,sh.nrows):
-            if sh.cell_value(row,0) == 1:
+        for row in range(0,self.sheet.nrows):
+            if self.sheet.cell_value(row,0) == 1:
                 return row
             
         print("End of file reached, no integer row")
         return 0
-    
-
-    def get_titlelines(self):
-        """Returns the number of lines to skip for the title(s)"""
-
-        if re.match(r"\[.*\]", self.sheet.cell_value(1,0)):
-            skip = 2
-        else:
-            skip = 1
-        
-        return skip
     
 
     # def is_empty(self, series):
@@ -161,20 +165,15 @@ class Table():
 
 
     def get_header(self):
-        # create header
-        header_n = self.header_end()
-
-        # determine title rows to skip
-        skip = self.get_titlelines()
 
         # get list of non-empty columns
         # cols = self.get_nonempty_cols()
         cols = list(range(0,self.sheet.ncols))
 
         header = pd.read_excel(self.filename,
-                                skiprows=skip,
+                                skiprows=self.title_lines,
                                 header=None,
-                                nrows=header_n-skip,
+                                nrows=self.header_lines - self.title_lines,
                                 usecols=cols
                                 )
 
@@ -184,6 +183,7 @@ class Table():
         header = header.ffill(axis=0).ffill(axis=1)
         return pd.MultiIndex.from_arrays(header.values)
 
+
     def get_footnotes(self):
         """Returns footnotes dict"""
 
@@ -192,6 +192,7 @@ class Table():
         # Extract footnotes from raw df
         footnotes = df[0].str.extract(r"\\([0-9])\\(.*)").dropna().set_index(0)
         return footnotes.to_dict()[1]
+
 
     def parse_col_info(self):
         """Returns dataframe with column information"""
@@ -212,7 +213,7 @@ class Table():
         col_info.columns = [f"column_level_{col+1}" for col in col_info.columns]
         
         # add table_id and table_year to col_info
-        col_info["digest_table_id"] = self.tab_number
+        col_info["digest_table_id"] = self.id
         col_info["digest_table_year"] = self.year
 
         # create column_ref_note columns
@@ -226,10 +227,7 @@ class Table():
             col_info[f"column_ref_note_{x + 1}"] = refs.replace(footnotes_dict)
 
             # delete footnote from column_level_x
-            col_level = col.str.replace(
-                pat = r"\\[0-9]\\",
-                repl = ""
-            )
+            col_level = col.str.replace(r"\\[0-9]\\", "")
 
             col_info[f"column_level_{x + 1}"] = col_level
 
@@ -282,4 +280,5 @@ if __name__ == "__main__":
         if filename.endswith(".xls"):
             file_directory = os.path.join(directory, filename)
             table = Table(file_directory, "2019")
-            table.write_xlsx()
+            print(table.id)
+            # table.write_xlsx()
