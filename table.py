@@ -14,7 +14,10 @@ class Table():
         self.filename = file_directory
         self.year = year
 
-        self.number = re.search(r"tabn(\d{3}\.\d{2})\.xls", file_directory).group(1)
+        self.tab_number = re.search(r"tabn(\d{3}\.\d{2})\.xls", file_directory).group(1)
+
+        _tab_number = self.tab_number.replace(".", "_")
+        self.out_filename = f"{self.year}_{_tab_number}_activate_step1.xlsx"
 
         # Read Excel workbook
         book = xlrd.open_workbook(self.filename, formatting_info=True)
@@ -26,17 +29,17 @@ class Table():
         # Table title
         self.title = self.get_title()
 
+        # Title lines: the number of rows in the table title
+        self.title_lines = 1
+        if re.match(r"\[.*\]", self.sheet.cell_value(1,0)):
+            self.title_lines = 2
+
         # Table Info dataframe
         self.table_info = self.parse_table_info()
 
         # Table Column dataframe
         self.col_info = self.parse_col_info()
     
-
-    @property
-    def out_filename(self):
-        digest_number = self.number.replace(".", "_")
-        return f"{self.year}_{digest_number}_activate_step1.xlsx"
 
     def get_title(self):
 
@@ -75,12 +78,13 @@ class Table():
 
         sh = self.sheet
         df = self.raw_df
+        tlines = self.title_lines
 
         # headnote
-        headnote = sh.cell_value(1,0) if self.get_titlelines() == 2 else ""
+        headnote = sh.cell_value(1,0) if tlines == 2 else ""
 
         # stub_head
-        stub_head = sh.cell_value(self.get_titlelines(),0)
+        stub_head = sh.cell_value(tlines,0)
 
         # general_note
         general = df[0].str.extract(r"NOTE: (.*)").dropna()
@@ -105,7 +109,7 @@ class Table():
         ]
 
         val_list = [
-            self.number, 
+            self.tab_number, 
             self.year, 
             self.title,
             headnote,
@@ -208,7 +212,7 @@ class Table():
         col_info.columns = [f"column_level_{col+1}" for col in col_info.columns]
         
         # add table_id and table_year to col_info
-        col_info["digest_table_id"] = self.number
+        col_info["digest_table_id"] = self.tab_number
         col_info["digest_table_year"] = self.year
 
         # create column_ref_note columns
@@ -279,6 +283,3 @@ if __name__ == "__main__":
             file_directory = os.path.join(directory, filename)
             table = Table(file_directory, "2019")
             table.write_xlsx()
-
-
-
