@@ -27,6 +27,8 @@ class Table():
         self.title_lines = self.get_title_lines()
         self.header_lines = self.get_header_lines()
 
+        self.footnotes = self.get_footnotes()
+
         # Table Info dataframe
         self.table_info = self.parse_table_info()
 
@@ -337,7 +339,47 @@ class Table():
         row_levels = row_levels.ffill(axis=1).ffill(axis=0)
         is_duplicate = row_levels.apply(lambda row: row.duplicated(), axis=1)
         row_levels = row_levels.where(~is_duplicate, "")
+
+        # rename columns
+        row_levels.columns = [f"row_level_{col+1}" for col in range(0,7)] + ["digest_table_sub_title"]
         
+        # create row_ref_note columns
+        for x in range(0, self.ROW_LEVELS):
+            col = row_levels[f"row_level_{x+1}"].astype(str)
+            
+            # create a reference column with the footnote number
+            refs = col.str.extract(r"\\([0-9])\\")
+            
+            # create new column with the reference note
+            row_levels[f"row_ref_note_{x+1}"] = refs.replace(self.footnotes)
+            
+            # delete footnote from row_level_x
+            new_col = col.str.replace(r"\\[0-9]\\", "").str.strip()
+            row_levels[f"row_level_{x+1}"] = new_col
+        
+        row_levels = row_levels.fillna("")
+
+        row_levels["digest_table_id"] = self.id
+        row_levels["digest_table_year"] = self.year
+
+        # list of columns in the desired order
+        col_list = [[f"row_level_{x + 1}", f"row_ref_note_{x + 1}"] for x in range(0,7)]
+        col_list = list(np.array(col_list).flatten())
+
+        # rearrange column order
+        row_levels = row_levels[
+            ['digest_table_id', 'digest_table_year', 'digest_table_sub_title'] + 
+            col_list
+        ]
+
+        # strip and replace \n
+        for col in range(0, row_levels.shape[1]):
+            new_cols = row_levels.iloc[:,col].str.strip(" .")
+            new_cols = new_cols.str.replace("\n", "")
+            row_levels.iloc[:,col] = new_cols
+
+
+
         return row_levels
 
 
