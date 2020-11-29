@@ -34,6 +34,8 @@ class Table():
         self.col_info = self.parse_col_info()
 
         self.end_row = self.get_row_end()
+
+        self.row_info = self.parse_row_info()
     
 
     def get_id(self):
@@ -275,6 +277,68 @@ class Table():
 
         print("Error: No data end row")
         return 0
+
+
+    def get_leading_spaces(self, string):
+        string = str(string)
+        res = re.search(r"[^ ]", string)
+        
+        if res:
+            return res.start()
+        else:
+            return 0
+    
+    def parse_row_info(self):
+        row_level = 0
+        indent_level = 0
+        rows = self.end_row - self.header_lines
+        subtitle = ""
+        
+        empty = np.empty([rows, self.ROW_LEVELS])
+        empty[:] = np.NaN
+        
+        row_levels = pd.DataFrame(empty,
+                                index=range(self.header_lines+1, self.end_row+1))
+
+        for row in range(self.header_lines + 1, self.end_row + 1):
+            cell = self.sheet.cell(row, 0)
+            cell_xf = self.book.xf_list[cell.xf_index]
+            is_bold = bool(self.font[cell_xf.font_index].bold)
+            is_empty = bool(cell.value == "")
+            indents = self.get_leading_spaces(cell.value)
+            is_total = is_bold and (indents == 3 or indents == 5)
+
+            
+            if is_empty and self.sheet.cell(row,1).value != "":
+                subtitle = self.sheet.cell(row, 1).value
+            
+            
+            if indents in [0,3,5]:
+                indent_level = 0
+            else:
+                indent_level = indents / 2
+            
+            
+            if is_total:
+                row_level = 0
+                row_levels.loc[row, "subtitle"] = subtitle
+                row_levels.loc[row, row_level] = cell.value
+                row_level = 1
+            elif is_bold:
+                row_level = 0
+                row_levels.loc[row, "subtitle"] = subtitle
+                row_levels.loc[row, row_level] = cell.value
+                row_level = 1
+            else: 
+                row_levels.loc[row, "subtitle"] = subtitle
+                row_levels.loc[row, row_level+indent_level] = cell.value
+            
+        # forward fill row levels
+        row_levels = row_levels.ffill(axis=1).ffill(axis=0)
+        is_duplicate = row_levels.apply(lambda row: row.duplicated(), axis=1)
+        row_levels = row_levels.where(~is_duplicate, "")
+        
+        return row_levels
 
 
     def write_xlsx(self):
