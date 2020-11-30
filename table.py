@@ -139,19 +139,6 @@ class Table():
             'last_prepared'
         ]
 
-        # val_list = [
-        #     self.id, 
-        #     self.year, 
-        #     self.title,
-        #     headnote,
-        #     stub_head,
-        #     general_note,
-        #     source_note,
-        #     last_prepared
-        # ]
-
-        # tb_info = pd.DataFrame(np.array([col_list, val_list]))
-
         g = self.row_info.groupby([
             'digest_table_sub_id', 
             'digest_table_sub_title'
@@ -426,7 +413,14 @@ class Table():
         col_names = list(range(1,self.raw_df.shape[1]))
         col_names_new = [self.AA(i-1, "") for i in range(1, self.raw_df.shape[1])]
         col_names_dict = dict(zip(col_names, col_names_new))
-        df.rename(columns=col_names_dict)
+        df = df.rename(columns=col_names_dict)
+
+        # drop row if all NaN in data
+        drop_rows = df.loc[:, 'A':].apply(lambda x: x.isna().all(), axis=1)
+        df = df[~drop_rows]
+
+        # create row index
+        df.insert(4, 'row_index', np.arange(1,df.shape[0]+1))
 
         return df
 
@@ -468,12 +462,12 @@ class Table():
 
 
 if __name__ == "__main__":
-    table = Table("tables/tabn203.10.xls", "2019")
-    print(table.row_info.head())
-    # directory = "tables/"
-    # for filename in os.listdir(directory):
-    #     if filename.endswith(".xls"):
-    #         file_directory = os.path.join(directory, filename)
-    #         table = Table(file_directory, "2019")
-    #         print(table.id)
-    #         table.write_xlsx()
+    # table = Table("tables/tabn203.10.xls", "2019")
+    # print(table.row_info.head())
+    directory = "tables/"
+    for filename in os.listdir(directory):
+        if filename.endswith(".xls"):
+            file_directory = os.path.join(directory, filename)
+            table = Table(file_directory, "2019")
+            print(table.id)
+            table.write_xlsx()
