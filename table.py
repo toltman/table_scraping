@@ -421,9 +421,14 @@ class Table():
             new_col = new_col.str.replace("- ", "")
             row_levels.iloc[:,col] = new_col
 
+        # merge with row data and rename columns
+        df = pd.merge(row_levels, self.raw_df.iloc[:,1:], how='left', left_index=True, right_index=True)
+        col_names = list(range(1,self.raw_df.shape[1]))
+        col_names_new = [self.AA(i-1, "") for i in range(1, self.raw_df.shape[1])]
+        col_names_dict = dict(zip(col_names, col_names_new))
+        df.rename(columns=col_names_dict)
 
-
-        return row_levels
+        return df
 
 
     def write_xlsx(self):
@@ -463,8 +468,8 @@ class Table():
 
 
 if __name__ == "__main__":
-    table = Table("tables/tabn213.10.xls", "2019")
-    print(table.table_info)
+    table = Table("tables/tabn203.10.xls", "2019")
+    print(table.row_info.head())
     # directory = "tables/"
     # for filename in os.listdir(directory):
     #     if filename.endswith(".xls"):
