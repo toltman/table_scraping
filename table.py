@@ -29,16 +29,17 @@ class Table():
 
         self.footnotes = self.get_footnotes()
 
-        # Table Info dataframe
-        self.table_info = self.parse_table_info()
-
         # Table Column dataframe
         self.col_info = self.parse_col_info()
 
+        # Table Row dataframe
         self.end_row = self.get_row_end()
-
         self.row_info = self.parse_row_info()
     
+        # Table Info dataframe
+        self.table_info = self.parse_table_info()
+
+
 
     def get_id(self):
         tnum = ""
@@ -318,7 +319,7 @@ class Table():
             is_total = is_bold and (indents == 3 or indents == 5)
 
             
-            if is_empty and self.sheet.cell(row,1).value != "":
+            if is_empty and self.sheet.cell(row,1).value.strip() != "":
                 subtitle = self.sheet.cell(row, 1).value
             
             
