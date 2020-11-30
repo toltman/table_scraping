@@ -129,6 +129,8 @@ class Table():
         col_list = [
             'digest_table_id', 
             'digest_table_year', 
+            'digest_table_sub_id',
+            'digest_table_sub_title',
             'table_title',
             'headnote',
             'stub_head',
@@ -137,18 +139,37 @@ class Table():
             'last_prepared'
         ]
 
-        val_list = [
-            self.id, 
-            self.year, 
-            self.title,
-            headnote,
-            stub_head,
-            general_note,
-            source_note,
-            last_prepared
-        ]
+        # val_list = [
+        #     self.id, 
+        #     self.year, 
+        #     self.title,
+        #     headnote,
+        #     stub_head,
+        #     general_note,
+        #     source_note,
+        #     last_prepared
+        # ]
 
-        tb_info = pd.DataFrame(np.array([col_list, val_list]))
+        # tb_info = pd.DataFrame(np.array([col_list, val_list]))
+
+        g = self.row_info.groupby([
+            'digest_table_sub_id', 
+            'digest_table_sub_title'
+            ]).size().reset_index()
+
+        tb_info = g[['digest_table_sub_id', 'digest_table_sub_title']]
+
+        tb_info['digest_table_id'] = self.id
+        tb_info['digest_table_year'] = self.year
+        tb_info['table_title'] = self.title
+        tb_info['headnote'] = headnote
+        tb_info['stub_head'] = stub_head
+        tb_info['general_note'] = general_note
+        tb_info['source_note'] = source_note
+        tb_info['last_prepared'] = last_prepared
+
+        tb_info = tb_info[col_list]
+
         return tb_info
 
     def get_header_lines(self):
@@ -409,7 +430,11 @@ class Table():
         """Writes to output file"""
 
         with pd.ExcelWriter(self.out_filename) as writer: #pylint: disable=abstract-class-instantiated
-            self.table_info.to_excel(
+            
+            # table info
+            table_info = self.table_info.T.reset_index().T
+
+            table_info.to_excel(
                 writer, 
                 sheet_name="table_info", 
                 index=False,
@@ -438,10 +463,12 @@ class Table():
 
 
 if __name__ == "__main__":
-    directory = "tables/"
-    for filename in os.listdir(directory):
-        if filename.endswith(".xls"):
-            file_directory = os.path.join(directory, filename)
-            table = Table(file_directory, "2019")
-            print(table.id)
-            table.write_xlsx()
+    table = Table("tables/tabn213.10.xls", "2019")
+    print(table.table_info)
+    # directory = "tables/"
+    # for filename in os.listdir(directory):
+    #     if filename.endswith(".xls"):
+    #         file_directory = os.path.join(directory, filename)
+    #         table = Table(file_directory, "2019")
+    #         print(table.id)
+    #         table.write_xlsx()
