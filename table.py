@@ -366,6 +366,14 @@ class Table():
         
         row_levels = row_levels.fillna("")
 
+        # generate subtable ids
+        subtable_titles = row_levels['digest_table_sub_title'].unique()
+        subtable_ids = [self.AA(i, "") for i in range(0, len(subtable_titles))]
+        subtable_dict = dict(zip(subtable_titles, subtable_ids))
+        row_levels['digest_table_sub_id'] = row_levels['digest_table_sub_title'].replace(subtable_dict)
+
+
+        # table id and year
         row_levels["digest_table_id"] = self.id
         row_levels["digest_table_year"] = self.year
 
@@ -375,7 +383,12 @@ class Table():
 
         # rearrange column order
         row_levels = row_levels[
-            ['digest_table_id', 'digest_table_year', 'digest_table_sub_title'] + 
+            [
+                'digest_table_id', 
+                'digest_table_year', 
+                'digest_table_sub_id',
+                'digest_table_sub_title'
+            ] + 
             col_list
         ]
 
