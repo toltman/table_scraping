@@ -261,6 +261,13 @@ class Table():
             col_list
         ]
 
+        # strip and replace \n
+        for col in range(0, col_info.shape[1]):
+            new_col = col_info.iloc[:,col].str.strip(" .")
+            new_col = new_col.str.replace("\n", " ")
+            new_col = new_col.str.replace("- ", "")
+            col_info.iloc[:,col] = new_col
+
         return col_info
 
     def get_row_end(self):
@@ -374,9 +381,10 @@ class Table():
 
         # strip and replace \n
         for col in range(0, row_levels.shape[1]):
-            new_cols = row_levels.iloc[:,col].str.strip(" .")
-            new_cols = new_cols.str.replace("\n", "")
-            row_levels.iloc[:,col] = new_cols
+            new_col = row_levels.iloc[:,col].str.strip(" .")
+            new_col = new_col.str.replace("\n", " ")
+            new_col = new_col.str.replace("- ", "")
+            row_levels.iloc[:,col] = new_col
 
 
 
@@ -390,6 +398,16 @@ class Table():
             self.table_info.to_excel(
                 writer, 
                 sheet_name="table_info", 
+                index=False,
+                header=False
+            )
+
+            # rows
+            row_info = self.row_info.T.reset_index().T
+
+            row_info.to_excel(
+                writer,
+                sheet_name="row_info",
                 index=False,
                 header=False
             )
@@ -412,4 +430,4 @@ if __name__ == "__main__":
             file_directory = os.path.join(directory, filename)
             table = Table(file_directory, "2019")
             print(table.id)
-            # table.write_xlsx()
+            table.write_xlsx()

@@ -2,3 +2,4 @@
 - "other jurisdictions" in 236.30 (double line end of "total" section)
 - double footnotes: 219.70
 - remove completely empty rows
+- non-string years are converted to "YYYY.0"
