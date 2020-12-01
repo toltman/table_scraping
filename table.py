@@ -412,21 +412,47 @@ class Table():
             new_col = new_col.str.replace("- ", "")
             row_levels.iloc[:,col] = new_col
 
+        # Clean up footnotes columns
+        df_fn = self.raw_df.loc[:, 1:].copy()
+        fn_cols = df_fn.apply(lambda x: self.is_fn_col(x), axis=0)
+
+        for i in fn_cols.index:
+            if fn_cols[i]:
+                fn_col = df_fn.loc[:, i].fillna("")
+                prev_col = df_fn.loc[:, i-1].fillna("").astype(str)
+                df_fn.loc[:, i-1] = prev_col + fn_col
+        
+        # remove footnote only cols
+        df_fn = df_fn.loc[:, ~fn_cols]
+        df_fn.columns = range(0,df_fn.shape[1])
+
         # merge with row data and rename columns
-        df = pd.merge(row_levels, self.raw_df.iloc[:,1:], how='left', left_index=True, right_index=True)
-        col_names = list(range(1,self.raw_df.shape[1]))
-        col_names_new = [self.AA(i-1, "") for i in range(1, self.raw_df.shape[1])]
+        df = pd.merge(row_levels, df_fn, how='left', left_index=True, right_index=True)
+        col_names = list(range(0,df_fn.shape[1]))
+        col_names_new = [self.AA(i, "") for i in range(0, df_fn.shape[1])]
         col_names_dict = dict(zip(col_names, col_names_new))
         df = df.rename(columns=col_names_dict)
 
         # drop row if all NaN in data
-        drop_rows = df.loc[:, 'A':].apply(lambda x: x.isna().all(), axis=1)
+        drop_rows = df.loc[:, 'A':].apply(lambda x: self.na_or_empty(x), axis=1)
         df = df[~drop_rows]
 
         # create row index
         df.insert(4, 'row_index', np.arange(1,df.shape[0]+1))
 
         return df
+
+
+    def na_or_empty(self, row):
+        is_na = row.isna() 
+        is_space = row.str.match(r"^\s*$")
+        is_empty = (is_na | is_space).all()
+        return is_empty
+    
+
+    def is_fn_col(self, col):
+        """col contains only footnotes"""
+        return col.str.contains(r"\\[0-9]\\").any()
 
 
     def write_xlsx(self):

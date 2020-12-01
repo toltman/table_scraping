@@ -1,0 +1,2 @@
+cols names stop at 'O'
+NaN rows are added back 
