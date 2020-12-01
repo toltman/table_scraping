@@ -445,14 +445,14 @@ class Table():
 
     def na_or_empty(self, row):
         is_na = row.isna() 
-        is_space = row.str.match(r"^\s*$")
+        is_space = row.astype(str).str.match(r"^\s*$")
         is_empty = (is_na | is_space).all()
         return is_empty
     
 
     def is_fn_col(self, col):
         """col contains only footnotes"""
-        return col.str.contains(r"\\[0-9]\\").any()
+        return col.str.match(r"^\\[0-9]\\$").any()
 
 
     def write_xlsx(self):
