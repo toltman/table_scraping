@@ -39,6 +39,9 @@ class Table():
         # Table Info dataframe
         self.table_info = self.parse_table_info()
 
+        # Cell info
+        self.cell_info = self.parse_cell_info()
+
 
 
     def get_id(self):
@@ -454,6 +457,60 @@ class Table():
         """col contains only footnotes"""
         return col.str.match(r"^\\[0-9]\\$").any()
 
+    
+    def parse_cell_info(self):
+
+        data = self.row_info.loc[:, 'A':]
+
+        col_list = [
+            'digest_table_id',
+            'digest_table_year',
+            'digest_table_sub_id',
+            'digest_table_sub_title',
+            'row_index',
+            'column_index',
+            'cell_ref_note',
+            'cell_special_note',
+        ]
+        cell_info = pd.DataFrame(columns=col_list)
+
+        symbols = ['---', '†', '#', '!', '‡', '*']
+        footnotes = ['Not available.',
+                    'Not applicable.',
+                    'Rounds to zero.',
+                    'Interpret data with caution. The coefficient of variation (CV) for this estimate is between 30 and 50 percent.',
+                    'Reporting standards not met. Either there are too few cases for a reliable estimate or the coefficient of variation (CV) for this estimate is 50 percent or greater.',
+                    'p < .05 significance level.'
+                    ]
+        symbol_dict = dict(zip(symbols, footnotes))
+
+        for row in data.index:
+            for col in data.columns:
+                
+                cell_val = str(data.loc[row, col])
+                
+                has_fn = re.match(r".*\\([0-9])\\$", cell_val)
+                is_spec = cell_val in symbols
+                
+                ref_note = ""
+                spec_note = ""
+                
+                if has_fn:
+                    ref_note = has_fn.group(1)
+                if is_spec:
+                    spec_note = symbol_dict[cell_val]
+                if has_fn or is_spec:
+                    l = list(self.row_info.loc[row, ['digest_table_id',
+                                    'digest_table_year',
+                                    'digest_table_sub_id',
+                                    'digest_table_sub_title',
+                                    'row_index']].values) + [col, ref_note, spec_note]
+                    df_row = pd.DataFrame(l, index=col_list).T
+                    cell_info = cell_info.append(df_row, ignore_index=True)
+        
+        cell_info['cell_ref_note'] = cell_info['cell_ref_note'].replace(self.footnotes)
+        return cell_info
+
 
     def write_xlsx(self):
         """Writes to output file"""
@@ -490,10 +547,17 @@ class Table():
                 header=False
             )
 
+            cell_info = self.cell_info.T.reset_index().T
+
+            cell_info.to_excel(
+                writer, 
+                sheet_name="cell_info",
+                index=False,
+                header=False
+            )
+
 
 if __name__ == "__main__":
-    # table = Table("tables/tabn203.10.xls", "2019")
-    # print(table.row_info.head())
     directory = "tables/"
     for filename in os.listdir(directory):
         if filename.endswith(".xls"):
