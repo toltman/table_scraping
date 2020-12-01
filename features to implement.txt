@@ -3,3 +3,14 @@
 - double footnotes: 219.70
 - remove completely empty rows
 - non-string years are converted to "YYYY.0"
+
+
+- dealing with empty columns, footnote columns, and SE columns
+
+- remove completely empty columns
+footnotes:
+- identify footnote columns
+- merge them with the column to the left
+  - df.new = str(df.left) + df.footnote
+  - remove df.left and df.footnote, replace with df.new
+

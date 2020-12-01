@@ -340,15 +340,18 @@ class Table():
             if is_total:
                 row_level = 0
                 row_levels.loc[row, "subtitle"] = subtitle
+                row_levels.loc[row, "is_total"] = "TRUE"
                 row_levels.loc[row, row_level] = cell.value
                 row_level = 1
             elif is_bold:
                 row_level = 0
                 row_levels.loc[row, "subtitle"] = subtitle
+                row_levels.loc[row, "is_total"] = "FALSE"
                 row_levels.loc[row, row_level] = cell.value
                 row_level = 1
             else: 
                 row_levels.loc[row, "subtitle"] = subtitle
+                row_levels.loc[row, "is_total"] = "FALSE"
                 row_levels.loc[row, row_level+indent_level] = cell.value
             
         # forward fill row levels
@@ -357,7 +360,7 @@ class Table():
         row_levels = row_levels.where(~is_duplicate, "")
 
         # rename columns
-        row_levels.columns = [f"row_level_{col+1}" for col in range(0,7)] + ["digest_table_sub_title"]
+        row_levels.columns = [f"row_level_{col+1}" for col in range(0,7)] + ["digest_table_sub_title", "is_total"]
         
         # create row_ref_note columns
         for x in range(0, self.ROW_LEVELS):
@@ -396,9 +399,10 @@ class Table():
                 'digest_table_id', 
                 'digest_table_year', 
                 'digest_table_sub_id',
-                'digest_table_sub_title'
+                'digest_table_sub_title',
             ] + 
-            col_list
+            col_list +
+            ['is_total']
         ]
 
         # strip and replace \n
