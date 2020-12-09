@@ -166,7 +166,7 @@ class Table():
             year = year2.group(0)
         if year3:
             year = year3.group(0)
-
+        
         year_in = ""
         if year1 or year2 or year3:
             year_in = "Title"
@@ -174,12 +174,39 @@ class Table():
         self.table_info.insert(5, 'year_in', year_in)
         self.row_info.insert(20,'year', year)
 
-        # iterate through row_levels and col_levels until year is found
+        # finds rows matching year format
+        if year_in == "":
+            row_levels = [f"row_level_{i+1}" for i in range(0, self.ROW_LEVELS)]
+            for row_level in row_levels:
+                year1 = self.row_info[row_level].str.match(r"\d{4}")
+                year2 = self.row_info[row_level].str.match(r"\d{4}–\d{2}")
+                year3 = self.row_info[row_level].str.match(r"\d{4}-\d{2}")
+                year4 = self.row_info[row_level].str.match(r"1999-2000")
+
+                years = year1 | year2 | year3 | year4
+
+                if years.all():
+                    year_in = "Row"
+                    self.row_info['year'] = self.row_info[row_level]
+                    self.table_info['year_in'] = year_in
+
+                
+        if year_in == "":
+            col_levels = [f"column_level_{i+1}" for i in range(0, self.ROW_LEVELS)]
+            for col_level in col_levels:
+                year1 = self.col_info[col_level].str.match(r"\d{4}")
+                year2 = self.col_info[col_level].str.match(r"\d{4}–\d{2}")
+                year3 = self.col_info[col_level].str.match(r"\d{4}-\d{2}")
+                year4 = self.col_info[col_level].str.match(r"1999-2000")
+
+                years = year1 | year2 | year3 | year4
+
+                if years.all():
+                    year_in = "Column"
+                    self.col_info['year'] = self.col_info[col_level]
+                    self.table_info['year_in'] = year_in
 
 
-
-
-        
 
     def find_SE(self):
         """finds and sets has_SE"""
@@ -580,8 +607,11 @@ class Table():
         df = df.rename(columns=col_names_dict)
 
         # drop row if all NaN in data
-        drop_rows = df.loc[:, 'A':].apply(lambda x: self.na_or_empty(x), axis=1)
+        drop_rows = df.loc[:, 'B':].apply(lambda x: self.na_or_empty(x), axis=1)
         df = df[~drop_rows]
+
+        # drop row if contains NaN
+        # df = df.dropna()
 
         # create row index
         df.insert(4, 'row_index', np.arange(1,df.shape[0]+1))
