@@ -56,9 +56,67 @@ class Table():
         # sets table.info.year_in, row_info.year and/or col_info.year
         self.find_table_year()
 
+        # clean up row_info footnotes
+        self.clean_up_rowinfo()
+
+        # drop if all null
+        self.drop_if_all_null()
+
+        # clean up multiple whitespace
+        self.clean_whitespace()
+
+        # convert all to string
+        self.convert_to_string()
+
+        # clean up empty paren
+        self.clean_empty_paren()
+
+        # fix multi-cell row_levels
+        self.fix_multicell_rows()
+
+        # fix 236.30 jurisdictions
+        self.fix_jurisdictions()
+
+        # replace all nan with ""
+        self.clean_nan()
+
         # deals with standard error columns
         # sets table_info.has_SE
         self.find_SE()
+
+
+    def clean_whitespace(self):
+        self.table_info = self.table_info.replace(r"\s+", " ", regex=True)
+        self.row_info = self.row_info.replace(r"\s+", " ", regex=True)
+        self.col_info = self.col_info.replace(r"\s+", " ", regex=True)
+        self.cell_info = self.cell_info.replace(r"\s+", " ", regex=True)
+
+    def clean_nan(self):
+        self.table_info = self.table_info.replace("nan", "")
+        self.row_info = self.row_info.replace("nan", "")
+        self.col_info = self.col_info.replace("nan", "")
+        self.cell_info = self.cell_info.replace("nan", "")
+
+    def clean_empty_paren(self):
+        self.row_info = self.row_info.replace(r"\(\)", "", regex=True)
+
+
+    def drop_if_all_null(self):
+        self.table_info = self.table_info.dropna(axis=1, how="all")
+        self.row_info = self.row_info.dropna(axis=1, how="all")
+        self.col_info = self.col_info.dropna(axis=1, how="all")
+        self.cell_info = self.cell_info.dropna(axis=1, how="all")
+
+    def convert_to_string(self):
+        self.table_info = self.table_info.astype(str)
+        self.row_info = self.row_info.astype(str)
+        self.col_info = self.col_info.astype(str)
+        self.cell_info = self.cell_info.astype(str)
+
+
+    def clean_up_rowinfo(self):
+        self.row_info = self.row_info.replace(r"(.*)\\[0-9]\\", r"\1", regex=True)
+        self.row_info = self.row_info.replace(r"(.*)\\[0-9],[0-9]\\", r"\1", regex=True)
 
     def add_subtables_to_col(self):
         """Adds subtable id and subtable title to col_info dataframe"""
@@ -73,6 +131,24 @@ class Table():
             df_list.append(df)
         
         self.col_info = pd.concat(df_list)
+
+    def fix_multicell_rows(self):
+        # specific table fix, until general solution is needed
+        if self.id == "217.15":
+            self.row_info.loc[13:18, 'row_level_1'] = 'Framing, floors, foundations--percent of schools with plans'
+            self.row_info.loc[63:68, 'row_level_1'] = 'Ventilation/filtration system--percent of schools with plans'
+            self.row_info.loc[113:118, 'row_level_1'] = 'Internal communication systems--percent of schools with plans'
+            self.row_info['row_level_2'] = self.row_info['row_level_3']
+            self.row_info['row_level_3'] = self.row_info['row_level_4']
+            self.row_info['row_level_4'] = ''
+
+
+    def fix_jurisdictions(self):
+        # specific fixed, until general solution needed
+        if self.id == "236.30":
+            self.row_info.loc[70:74, 'row_level_1'] = "Other jurisdictions"
+            self.row_info.loc[70:74, 'row_level_2'] = self.row_info.loc[70:74, 'row_level_3']
+            self.row_info.loc[70:74, 'row_level_3'] = ''
 
 
     def find_value_represents(self):
@@ -161,11 +237,11 @@ class Table():
 
         year = ""
         if year1:
-            year = year1.group(0)
+            year = year1.group(1)
         if year2: 
-            year = year2.group(0)
+            year = year2.group(1)
         if year3:
-            year = year3.group(0)
+            year = year3.group(1)
         
         year_in = ""
         if year1 or year2 or year3:
@@ -173,6 +249,7 @@ class Table():
 
         self.table_info.insert(5, 'year_in', year_in)
         self.row_info.insert(20,'year', year)
+        self.col_info.insert(6, 'year', year)
 
         # finds rows matching year format
         if year_in == "":
@@ -182,8 +259,9 @@ class Table():
                 year2 = self.row_info[row_level].str.match(r"\d{4}–\d{2}")
                 year3 = self.row_info[row_level].str.match(r"\d{4}-\d{2}")
                 year4 = self.row_info[row_level].str.match(r"1999-2000")
+                year5 = self.row_info[row_level].str.match(r"Fall \d{4}")
 
-                years = year1 | year2 | year3 | year4
+                years = year1 | year2 | year3 | year4 | year5
 
                 if years.all():
                     year_in = "Row"
@@ -198,8 +276,9 @@ class Table():
                 year2 = self.col_info[col_level].str.match(r"\d{4}–\d{2}")
                 year3 = self.col_info[col_level].str.match(r"\d{4}-\d{2}")
                 year4 = self.col_info[col_level].str.match(r"1999-2000")
+                year5 = self.col_info[col_level].str.match(r"Fall \d{4}")
 
-                years = year1 | year2 | year3 | year4
+                years = year1 | year2 | year3 | year4 | year5
 
                 if years.all():
                     year_in = "Column"
@@ -650,8 +729,10 @@ class Table():
         ]
         cell_info = pd.DataFrame(columns=col_list)
 
-        symbols = ['---', '†', '#', '!', '‡', '*']
+        symbols = ['---', '(---)', '†', '(†)', '#', '!', '‡', '*']
         footnotes = ['Not available.',
+                    'Not available.',
+                    'Not applicable.',
                     'Not applicable.',
                     'Rounds to zero.',
                     'Interpret data with caution. The coefficient of variation (CV) for this estimate is between 30 and 50 percent.',
@@ -665,7 +746,8 @@ class Table():
                 
                 cell_val = str(data.loc[row, col])
                 
-                has_fn = re.match(r".*\\([0-9])\\$", cell_val)
+                has_fn = re.match(r".*\\([0-9])\\", cell_val)
+                has_multi_fn = re.match(r".*\\([0-9]),([0-9])\\", cell_val)
                 is_spec = cell_val in symbols
                 
                 ref_note = ""
@@ -673,9 +755,11 @@ class Table():
                 
                 if has_fn:
                     ref_note = has_fn.group(1)
+                if has_multi_fn:
+                    ref_note = self.footnotes[has_multi_fn.group(1)] + " --- " + self.footnotes[has_multi_fn.group(2)]
                 if is_spec:
                     spec_note = symbol_dict[cell_val]
-                if has_fn or is_spec:
+                if has_fn or has_multi_fn or is_spec:
                     l = list(self.row_info.loc[row, ['digest_table_id',
                                     'digest_table_year',
                                     'digest_table_sub_id',
@@ -684,7 +768,12 @@ class Table():
                     df_row = pd.DataFrame(l, index=col_list).T
                     cell_info = cell_info.append(df_row, ignore_index=True)
         
+        # replaces single footnote cells
         cell_info['cell_ref_note'] = cell_info['cell_ref_note'].replace(self.footnotes)
+
+        # replace multifootnote cells
+        
+
         return cell_info
 
 
