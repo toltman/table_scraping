@@ -125,11 +125,61 @@ class Table():
 
     def find_location(self):
         """finds and sets location_in, location, and location type"""
-        pass
+
+        row_location_list = [
+            'Region and year',
+            'State',
+            'Name of district',
+            'State or jurisdiction',
+        ]
+
+        # identify location by the stubhead
+        location_in = ""
+        stub_head = self.table_info['stub_head'].values[0]
+        if stub_head in row_location_list:
+            location_in = "Row"
+
+        self.table_info.insert(4, "location_in", location_in)
+
+        # create location and location_type cols
+        if location_in == "Row" and stub_head == "Region and year":
+            self.row_info.insert(20, 'location', self.row_info['row_level_1'])
+            self.row_info.insert(21, 'location_type', stub_head)
+        elif location_in == "Row":
+            self.row_info.insert(20, 'location', self.row_info['row_level_2'])
+            self.row_info.insert(21, 'location_type', stub_head)
+
+
 
     def find_table_year(self):
         """finds and sets year_in, and year values"""
-        pass
+        # check title for year
+        # title ends in YYYY or YYYY-YY
+        year1 = re.search(r": (\d{4})$", self.title)
+        year2 = re.search(r": (\d{4}–\d{2})$", self.title)
+        year3 = re.search(r": (\d{4}-\d{2})$", self.title)
+
+        year = ""
+        if year1:
+            year = year1.group(0)
+        if year2: 
+            year = year2.group(0)
+        if year3:
+            year = year3.group(0)
+
+        year_in = ""
+        if year1 or year2 or year3:
+            year_in = "Title"
+
+        self.table_info.insert(5, 'year_in', year_in)
+        self.row_info.insert(20,'year', year)
+
+        # iterate through row_levels and col_levels until year is found
+
+
+
+
+        
 
     def find_SE(self):
         """finds and sets has_SE"""
@@ -366,7 +416,8 @@ class Table():
 
         # strip and replace \n
         for col in range(0, col_info.shape[1]):
-            new_col = col_info.iloc[:,col].str.strip(" .")
+            new_col = col_info.iloc[:,col].str.strip()
+            new_col = new_col.str.replace(r"\.\.+", "", regex=True)
             new_col = new_col.str.replace("\n", " ")
             new_col = new_col.str.replace("- ", "")
             col_info.iloc[:,col] = new_col
@@ -501,8 +552,8 @@ class Table():
 
         # strip and replace \n
         for col in range(0, row_levels.shape[1]):
-            new_col = new_col.str.replace(r"\.\.+", "", regex=True)
             new_col = row_levels.iloc[:,col].str.strip()
+            new_col = new_col.str.replace(r"\.\.+", "", regex=True)
             new_col = new_col.str.replace("\n", " ")
             new_col = new_col.str.replace("- ", "")
             row_levels.iloc[:,col] = new_col
