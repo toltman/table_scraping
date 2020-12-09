@@ -42,7 +42,98 @@ class Table():
         # Cell info
         self.cell_info = self.parse_cell_info()
 
+        # Add subtables to col_info
+        self.add_subtables_to_col()
 
+        # adds value_represents to col_info or cell_info
+        self.find_value_represents()
+
+        # gets location values of the table
+        # sets table.info.location_in, row_info.location and/or col_info.location_type
+        self.find_location()
+
+        # gets the year and adds table_info.year_in
+        # sets table.info.year_in, row_info.year and/or col_info.year
+        self.find_table_year()
+
+        # deals with standard error columns
+        # sets table_info.has_SE
+        self.find_SE()
+
+    def add_subtables_to_col(self):
+        """Adds subtable id and subtable title to col_info dataframe"""
+        sub_tables = self.row_info[['digest_table_sub_id', 'digest_table_sub_title']].drop_duplicates()
+        
+        df_list = []
+
+        for index, row in sub_tables.iterrows():
+            df = self.col_info.copy()
+            df.insert(2, 'digest_table_sub_id', row['digest_table_sub_id'])
+            df.insert(3, 'digest_table_sub_title', row['digest_table_sub_title'])
+            df_list.append(df)
+        
+        self.col_info = pd.concat(df_list)
+
+
+    def find_value_represents(self):
+        """Adds value_represents to col_info and cell_info"""
+        
+        val_rep = self.col_info.apply(lambda row: self.get_value_represents(row), axis=1)
+        self.col_info.insert(5,'value_represents', val_rep)
+
+    def get_value_represents(self, row):
+        """Calculate value_represents value given row"""
+
+        title_has_enroll = "enrollment in" in self.title.lower()
+        title_has_number = "number" in self.title.lower()
+        enroll_or_number = title_has_enroll or title_has_number
+        title_has_percent = "percentage" in self.title.lower()
+        title_has_expend = "expenditure" in self.title.lower()
+
+        if enroll_or_number and not title_has_percent:
+            return "Count"
+        elif title_has_percent and not enroll_or_number:
+            return "Percentage"
+        elif title_has_expend:
+            return "Dollar"
+        elif "percent" in row['digest_table_sub_title'].lower():
+            return "Percentage"
+        elif "number" in row['digest_table_sub_title'].lower():
+            return "Count"
+        elif " per " in row['digest_table_sub_title'].lower():
+            return "Rates"
+        elif "percent" in row['column_level_1'].lower():
+            return "Percentage"
+        elif "enrollment" in row['column_level_1'].lower():
+            return "Count"
+        elif "enroll-ment" in row['column_level_1'].lower():
+            return "Count"
+        elif "number" in row['column_level_1'].lower():
+            return "Count"
+        elif "rate" in row['column_level_1'].lower():
+            return "Rates"
+        elif row['column_level_1'] == "State":
+            return "Text"
+        elif "number" in row['column_level_2'].lower():
+            return "Count"
+        elif "ratio" in row['column_level_2'].lower():
+            return "Rates"
+        elif "percent" in row['column_level_2'].lower():
+            return "Percentage"
+        return "Not Found"
+
+
+    def find_location(self):
+        """finds and sets location_in, location, and location type"""
+        pass
+
+    def find_table_year(self):
+        """finds and sets year_in, and year values"""
+        pass
+
+    def find_SE(self):
+        """finds and sets has_SE"""
+        pass
 
     def get_id(self):
         tnum = ""
@@ -391,7 +482,7 @@ class Table():
         # table id and year
         row_levels["digest_table_id"] = self.id
         row_levels["digest_table_year"] = self.year
-
+        
         # list of columns in the desired order
         col_list = [[f"row_level_{x + 1}", f"row_ref_note_{x + 1}"] for x in range(0,7)]
         col_list = list(np.array(col_list).flatten())
@@ -410,7 +501,8 @@ class Table():
 
         # strip and replace \n
         for col in range(0, row_levels.shape[1]):
-            new_col = row_levels.iloc[:,col].str.strip(" .")
+            new_col = new_col.str.replace(r"\.\.+", "", regex=True)
+            new_col = row_levels.iloc[:,col].str.strip()
             new_col = new_col.str.replace("\n", " ")
             new_col = new_col.str.replace("- ", "")
             row_levels.iloc[:,col] = new_col
@@ -442,6 +534,9 @@ class Table():
 
         # create row index
         df.insert(4, 'row_index', np.arange(1,df.shape[0]+1))
+
+        # remove YYYY.0 from years
+        df = df.replace(r"(\d{4})\.0", r"\1", regex=True)
 
         return df
 
