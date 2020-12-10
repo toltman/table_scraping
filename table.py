@@ -77,12 +77,37 @@ class Table():
         # fix 236.30 jurisdictions
         self.fix_jurisdictions()
 
+        # remove spec char columns
+        self.remove_spec_char()
+
+        # add has_SE to the table_info tab
+        self.add_has_SE()
+
+        # add column is_total
+        self.add_col_is_total()
+
         # replace all nan with ""
         self.clean_nan()
 
         # deals with standard error columns
         # sets table_info.has_SE
         self.find_SE()
+
+
+
+    def add_col_is_total(self):
+        self.col_info.insert(6, 'is_total', 'FALSE')
+
+
+
+    def add_has_SE(self):
+        has_SE = 'FALSE'
+        if self.table_info['headnote'].values[0] == '[Standard errors appear in parentheses]':
+            has_SE = 'TRUE'
+        self.table_info.insert(4, 'has_SE', has_SE)
+    
+    def remove_spec_char(self):
+        pass
 
 
     def clean_whitespace(self):
@@ -218,12 +243,15 @@ class Table():
         self.table_info.insert(4, "location_in", location_in)
 
         # create location and location_type cols
+        self.row_info.insert(20, 'location', "")
+        self.row_info.insert(21, 'location_type', "")
+
         if location_in == "Row" and stub_head == "Region and year":
-            self.row_info.insert(20, 'location', self.row_info['row_level_1'])
-            self.row_info.insert(21, 'location_type', stub_head)
+            self.row_info['location'] = self.row_info['row_level_1']
+            self.row_info['location_type'] = 'Region'
         elif location_in == "Row":
-            self.row_info.insert(20, 'location', self.row_info['row_level_2'])
-            self.row_info.insert(21, 'location_type', stub_head)
+            self.row_info['location'] = self.row_info['row_level_2']
+            self.row_info['location_type'] =  stub_head
 
 
 
@@ -666,7 +694,7 @@ class Table():
 
         # Clean up footnotes columns
         df_fn = self.raw_df.loc[:, 1:].copy()
-        fn_cols = df_fn.apply(lambda x: self.is_fn_col(x), axis=0)
+        fn_cols = df_fn.apply(lambda x: self.is_fn_col(x), axis=0) 
 
         for i in fn_cols.index:
             if fn_cols[i]:
@@ -771,7 +799,6 @@ class Table():
         # replaces single footnote cells
         cell_info['cell_ref_note'] = cell_info['cell_ref_note'].replace(self.footnotes)
 
-        # replace multifootnote cells
         
 
         return cell_info
