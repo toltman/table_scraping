@@ -516,7 +516,7 @@ class Table():
 
         # create column_ref_note columns
         for x in range(0, self.COL_LEVELS):
-            col = col_info[f"column_level_{x + 1}"]
+            col = col_info[f"column_level_{x + 1}"].astype(str)
 
             # create a reference column with the footnote number
             refs = col.str.extract(r"\\([0-9])\\")
