@@ -12,14 +12,18 @@ class Table():
 
     def __init__(self, file_directory, year):
         self.filename = file_directory
-        self.year = year
-        self.id = self.get_id()
-        self.out_filename = self.get_out_filename()
 
         # Read Excel workbook
         self.book = xlrd.open_workbook(self.filename, formatting_info=True)
         self.sheet = self.book.sheet_by_index(0)
         self.font = self.book.font_list
+
+        res = re.match(r"Digest (\d{4}).*", self.sheet.name)
+        if res:
+            self.year = res.group(1)
+
+        self.id = self.get_id()
+        self.out_filename = self.get_out_filename()
 
         self.raw_df = pd.read_excel(self.filename, header=None)
 
@@ -45,8 +49,9 @@ class Table():
         # Add subtables to col_info
         self.add_subtables_to_col()
 
+        # removed
         # adds value_represents to col_info or cell_info
-        self.find_value_represents()
+        # self.find_value_represents()
 
         # gets location values of the table
         # sets table.info.location_in, row_info.location and/or col_info.location_type
@@ -93,6 +98,31 @@ class Table():
         # sets table_info.has_SE
         self.find_SE()
 
+        # sets the correct order of columns
+        self.order_cols()
+
+        # merge cell_ref_note and cell_special_note
+        self.merge_cell_notes()
+
+
+
+    def merge_cell_notes(self):
+            pass
+
+
+
+
+    def order_cols(self):
+        cols = [
+            'digest_table_id', 'digest_table_year', 'digest_table_sub_id', 'digest_table_sub_title', 
+            'column_index', 'is_total', 'year', 'location', 'location_type', 
+            'column_level_1', 'column_level_2', 'column_level_3', 'column_level_4', 'column_level_5', 
+            'column_level_6', 'column_level_7', 'column_ref_note_1', 'column_ref_note_2', 'column_ref_note_3', 
+            'column_ref_note_4', 'column_ref_note_5', 'column_ref_note_6', 'column_ref_note_7'
+            ]
+        
+        self.col_info = self.col_info[cols]
+
 
 
     def add_col_is_total(self):
@@ -130,7 +160,8 @@ class Table():
         self.table_info = self.table_info.dropna(axis=1, how="all")
         self.row_info = self.row_info.dropna(axis=1, how="all")
         self.col_info = self.col_info.dropna(axis=1, how="all")
-        self.cell_info = self.cell_info.dropna(axis=1, how="all")
+        # do not remove all blank cell_info rows...this was causing empty tables to not appear
+        # self.cell_info = self.cell_info.dropna(axis=1, how="all")
 
     def convert_to_string(self):
         self.table_info = self.table_info.astype(str)
@@ -142,6 +173,7 @@ class Table():
     def clean_up_rowinfo(self):
         self.row_info = self.row_info.replace(r"(.*)\\[0-9]\\", r"\1", regex=True)
         self.row_info = self.row_info.replace(r"(.*)\\[0-9],[0-9]\\", r"\1", regex=True)
+        self.row_info = self.row_info.replace(r"(.*)!$", r"\1", regex=True)
 
     def add_subtables_to_col(self):
         """Adds subtable id and subtable title to col_info dataframe"""
@@ -246,11 +278,21 @@ class Table():
         self.row_info.insert(20, 'location', "")
         self.row_info.insert(21, 'location_type', "")
 
+        # create location and location_type in col_info table
+        self.col_info.insert(6, 'location', "")
+        self.col_info.insert(7, 'location_type', "")
+
         if location_in == "Row" and stub_head == "Region and year":
             self.row_info['location'] = self.row_info['row_level_1']
-            self.row_info['location_type'] = 'Region'
+            self.row_info['location_type'] = stub_head # "Region"
         elif location_in == "Row":
             self.row_info['location'] = self.row_info['row_level_2']
+
+            # fixes issue with 'United States' appearing in the is_total row of table
+            is_total = self.row_info['is_total'] == 'TRUE'
+            self.row_info.loc[is_total, 'location'] = self.row_info.loc[is_total, 'row_level_1']
+            self.row_info.loc[is_total, 'row_level_2'] = self.row_info.loc[is_total, 'row_level_1']
+
             self.row_info['location_type'] =  stub_head
 
 
@@ -332,7 +374,7 @@ class Table():
     def get_out_filename(self):
         tab_id = self.id.replace(".", "_")
 
-        return f"{self.year}_{tab_id}_activate_step1.xlsx"
+        return f"output/{self.year}_{tab_id}_activate_step1.xlsx"
 
 
     def get_title(self):
@@ -701,10 +743,24 @@ class Table():
                 fn_col = df_fn.loc[:, i].fillna("")
                 prev_col = df_fn.loc[:, i-1].fillna("").astype(str)
                 df_fn.loc[:, i-1] = prev_col + fn_col
+
+
+        # Clean up special note columns
+        sn_cols = df_fn.apply(lambda x: self.is_spec_note_col(x), axis=0) 
+
+        for i in sn_cols.index:
+            if sn_cols[i]:
+                sn_col = df_fn.loc[:, i].fillna("")
+                prev_col = df_fn.loc[:, i-1].fillna("").astype(str)
+                df_fn.loc[:, i-1] = prev_col + sn_col
         
         # remove footnote only cols
         df_fn = df_fn.loc[:, ~fn_cols]
-        df_fn.columns = range(0,df_fn.shape[1])
+        # df_fn.columns = range(0,df_fn.shape[1])
+
+        # remove special note only cols
+        df_fn = df_fn.loc[:, ~sn_cols]
+        df_fn.columns = range(0, df_fn.shape[1])
 
         # merge with row data and rename columns
         df = pd.merge(row_levels, df_fn, how='left', left_index=True, right_index=True)
@@ -740,6 +796,10 @@ class Table():
         """col contains only footnotes"""
         return col.str.match(r"^\\[0-9]\\$").any()
 
+    def is_spec_note_col(self, col):
+        """col contains only special notes"""
+        return col.str.match(r"!").any()
+
     
     def parse_cell_info(self):
 
@@ -752,16 +812,16 @@ class Table():
             'digest_table_sub_title',
             'row_index',
             'column_index',
-            'cell_ref_note',
-            'cell_special_note',
+            'cell_note',
         ]
         cell_info = pd.DataFrame(columns=col_list)
 
-        symbols = ['---', '(---)', '†', '(†)', '#', '!', '‡', '*']
+        symbols = ['---', '(---)', '†', '(†)', '#', '(#)', '!', '‡', '*']
         footnotes = ['Not available.',
                     'Not available.',
                     'Not applicable.',
                     'Not applicable.',
+                    'Rounds to zero.',
                     'Rounds to zero.',
                     'Interpret data with caution. The coefficient of variation (CV) for this estimate is between 30 and 50 percent.',
                     'Reporting standards not met. Either there are too few cases for a reliable estimate or the coefficient of variation (CV) for this estimate is 50 percent or greater.',
@@ -777,29 +837,34 @@ class Table():
                 has_fn = re.match(r".*\\([0-9])\\", cell_val)
                 has_multi_fn = re.match(r".*\\([0-9]),([0-9])\\", cell_val)
                 is_spec = cell_val in symbols
+                has_exclam = re.match(r".*!$", cell_val)
                 
-                ref_note = ""
-                spec_note = ""
+                cell_note = ""
+                # ref_note = ""
+                # spec_note = ""
                 
                 if has_fn:
-                    ref_note = has_fn.group(1)
+                    # ref_note = has_fn.group(1)
+                    cell_note = has_fn.group(1)
                 if has_multi_fn:
-                    ref_note = self.footnotes[has_multi_fn.group(1)] + " --- " + self.footnotes[has_multi_fn.group(2)]
+                    # ref_note = self.footnotes[has_multi_fn.group(1)] + " --- " + self.footnotes[has_multi_fn.group(2)]
+                    cell_note = self.footnotes[has_multi_fn.group(1)] + " --- " + self.footnotes[has_multi_fn.group(2)]
                 if is_spec:
-                    spec_note = symbol_dict[cell_val]
-                if has_fn or has_multi_fn or is_spec:
+                    # spec_note = symbol_dict[cell_val]
+                    cell_note = symbol_dict[cell_val]
+                if has_exclam:
+                    cell_note = 'Interpret data with caution. The coefficient of variation (CV) for this estimate is between 30 and 50 percent.'
+                if has_fn or has_multi_fn or is_spec or has_exclam:
                     l = list(self.row_info.loc[row, ['digest_table_id',
                                     'digest_table_year',
                                     'digest_table_sub_id',
                                     'digest_table_sub_title',
-                                    'row_index']].values) + [col, ref_note, spec_note]
+                                    'row_index']].values) + [col, cell_note]
                     df_row = pd.DataFrame(l, index=col_list).T
                     cell_info = cell_info.append(df_row, ignore_index=True)
         
         # replaces single footnote cells
-        cell_info['cell_ref_note'] = cell_info['cell_ref_note'].replace(self.footnotes)
-
-        
+        cell_info['cell_note'] = cell_info['cell_note'].replace(self.footnotes)
 
         return cell_info
 
@@ -850,10 +915,13 @@ class Table():
 
 
 if __name__ == "__main__":
-    directory = "tables/"
+    directory = "100tables/"
     for filename in os.listdir(directory):
-        if filename.endswith(".xls"):
-            file_directory = os.path.join(directory, filename)
-            table = Table(file_directory, "2019")
-            print(table.id)
-            table.write_xlsx()
+        try: 
+            if filename.endswith(".xls"):
+                file_directory = os.path.join(directory, filename)
+                table = Table(file_directory, "2019")
+                print(table.id)
+                table.write_xlsx()
+        except:
+            print('An error occurred')
