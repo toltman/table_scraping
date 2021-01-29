@@ -330,8 +330,11 @@ class Table():
                 year3 = self.row_info[row_level].str.match(r"\d{4}-\d{2}")
                 year4 = self.row_info[row_level].str.match(r"1999-2000")
                 year5 = self.row_info[row_level].str.match(r"Fall \d{4}")
+                year6 = self.row_info[row_level].str.match(r"fall \d{4}")
+                year7 = self.row_info[row_level].str.match(r"Spring \d{4}")
+                year8 = self.row_info[row_level].str.match(r"spring \d{4}")
 
-                years = year1 | year2 | year3 | year4 | year5
+                years = year1 | year2 | year3 | year4 | year5 | year6 | year7 | year8
 
                 if years.all():
                     year_in = "Row"
@@ -347,13 +350,20 @@ class Table():
                 year3 = self.col_info[col_level].str.match(r"\d{4}-\d{2}")
                 year4 = self.col_info[col_level].str.match(r"1999-2000")
                 year5 = self.col_info[col_level].str.match(r"Fall \d{4}")
+                year6 = self.col_info[col_level].str.match(r"fall \d{4}")
+                year7 = self.col_info[col_level].str.match(r"Spring \d{4}")
+                year8 = self.col_info[col_level].str.match(r"spring \d{4}")
 
-                years = year1 | year2 | year3 | year4 | year5
+                years = year1 | year2 | year3 | year4 | year5 | year6 | year7 | year8
 
                 if years.all():
                     year_in = "Column"
                     self.col_info['year'] = self.col_info[col_level]
                     self.table_info['year_in'] = year_in
+        
+        if year_in == "":
+            year_in = "Title"
+            self.table_info['year_in'] = year_in
 
 
 
@@ -556,20 +566,38 @@ class Table():
         col_info["digest_table_id"] = self.id
         col_info["digest_table_year"] = self.year
 
-        # create column_ref_note columns
+        # # create column_ref_note columns
+        # for x in range(0, self.COL_LEVELS):
+        #     col = col_info[f"column_level_{x + 1}"].astype(str)
+
+        #     # create a reference column with the footnote number
+        #     refs = col.str.extract(r"\\([0-9])\\")
+
+        #     # create new column with the reference note
+        #     col_info[f"column_ref_note_{x + 1}"] = refs.replace(footnotes_dict)
+
+        #     # delete footnote from column_level_x
+        #     col_level = col.str.replace(r"\\[0-9]\\", "")
+
+        #     col_info[f"column_level_{x + 1}"] = col_level
+
         for x in range(0, self.COL_LEVELS):
-            col = col_info[f"column_level_{x + 1}"].astype(str)
-
+            col = col_info[f"column_level_{x+1}"].astype(str)
+            
             # create a reference column with the footnote number
-            refs = col.str.extract(r"\\([0-9])\\")
-
+            refs = col.str.extract(r"\\([0-9]),?([0-9])?\\")
+            refs = refs.replace(self.footnotes)
+            refs = refs.fillna("")
+            s = refs[0] + " ; " + refs[1]
+            s = s.replace(regex = r" ; $", value = "")
+            
             # create new column with the reference note
-            col_info[f"column_ref_note_{x + 1}"] = refs.replace(footnotes_dict)
+            col_info[f"column_ref_note_{x+1}"] = s
+            
+            # delete footnote from col_level_x
+            new_col = col.str.replace(r"\\([0-9]),?([0-9])?\\", "").str.strip()
+            col_info[f"column_level_{x+1}"] = new_col
 
-            # delete footnote from column_level_x
-            col_level = col.str.replace(r"\\[0-9]\\", "")
-
-            col_info[f"column_level_{x + 1}"] = col_level
 
         # Remove extra headers
         col_info = col_info.fillna("")
@@ -688,13 +716,17 @@ class Table():
             col = row_levels[f"row_level_{x+1}"].astype(str)
             
             # create a reference column with the footnote number
-            refs = col.str.extract(r"\\([0-9])\\")
+            refs = col.str.extract(r"\\([0-9]),?([0-9])?\\")
+            refs = refs.replace(self.footnotes)
+            refs = refs.fillna("")
+            s = refs[0] + " ; " + refs[1]
+            s = s.replace(regex = r" ; $", value = "")
             
             # create new column with the reference note
-            row_levels[f"row_ref_note_{x+1}"] = refs.replace(self.footnotes)
+            row_levels[f"row_ref_note_{x+1}"] = s
             
             # delete footnote from row_level_x
-            new_col = col.str.replace(r"\\[0-9]\\", "").str.strip()
+            new_col = col.str.replace(r"\\([0-9]),?([0-9])?\\", "").str.strip()
             row_levels[f"row_level_{x+1}"] = new_col
         
         row_levels = row_levels.fillna("")
@@ -756,10 +788,13 @@ class Table():
         
         # remove footnote only cols
         df_fn = df_fn.loc[:, ~fn_cols]
-        # df_fn.columns = range(0,df_fn.shape[1])
 
         # remove special note only cols
         df_fn = df_fn.loc[:, ~sn_cols]
+
+        # remove empty cols
+        df_fn = df_fn.dropna(axis=1, how='all')
+
         df_fn.columns = range(0, df_fn.shape[1])
 
         # merge with row data and rename columns
@@ -772,6 +807,10 @@ class Table():
         # drop row if all NaN in data
         drop_rows = df.loc[:, 'B':].apply(lambda x: self.na_or_empty(x), axis=1)
         df = df[~drop_rows]
+
+        # drop_cols = df.loc[:, 'A':].apply(lambda x: self.na_or_empty(x), axis=0)
+        # df = df.loc[:, ~drop_cols]
+
 
         # drop row if contains NaN
         # df = df.dropna()
@@ -816,8 +855,10 @@ class Table():
         ]
         cell_info = pd.DataFrame(columns=col_list)
 
-        symbols = ['---', '(---)', '†', '(†)', '#', '(#)', '!', '‡', '*']
+        symbols = ['–––', '(–––)', '---', '(---)', '†', '(†)', '#', '(#)', '!', '‡', '*']
         footnotes = ['Not available.',
+                    'Not available.',
+                    'Not available.',
                     'Not available.',
                     'Not applicable.',
                     'Not applicable.',
@@ -839,29 +880,45 @@ class Table():
                 is_spec = cell_val in symbols
                 has_exclam = re.match(r".*!$", cell_val)
                 
-                cell_note = ""
+                cell_note_1 = ""
+                cell_note_2 = ""
                 # ref_note = ""
                 # spec_note = ""
                 
                 if has_fn:
-                    # ref_note = has_fn.group(1)
-                    cell_note = has_fn.group(1)
+                    cell_note_1 = has_fn.group(1)
                 if has_multi_fn:
-                    # ref_note = self.footnotes[has_multi_fn.group(1)] + " --- " + self.footnotes[has_multi_fn.group(2)]
-                    cell_note = self.footnotes[has_multi_fn.group(1)] + " --- " + self.footnotes[has_multi_fn.group(2)]
+                    cell_note_1 = self.footnotes[has_multi_fn.group(1)]
+                    cell_note_2 = self.footnotes[has_multi_fn.group(2)]
                 if is_spec:
-                    # spec_note = symbol_dict[cell_val]
-                    cell_note = symbol_dict[cell_val]
+                    cell_note_1 = symbol_dict[cell_val]
                 if has_exclam:
-                    cell_note = 'Interpret data with caution. The coefficient of variation (CV) for this estimate is between 30 and 50 percent.'
-                if has_fn or has_multi_fn or is_spec or has_exclam:
+                    cell_note_1 = 'Interpret data with caution. The coefficient of variation (CV) for this estimate is between 30 and 50 percent.'
+                if has_fn or is_spec or has_exclam:
                     l = list(self.row_info.loc[row, ['digest_table_id',
                                     'digest_table_year',
                                     'digest_table_sub_id',
                                     'digest_table_sub_title',
-                                    'row_index']].values) + [col, cell_note]
+                                    'row_index']].values) + [col, cell_note_1]
                     df_row = pd.DataFrame(l, index=col_list).T
                     cell_info = cell_info.append(df_row, ignore_index=True)
+                if has_multi_fn:
+                    l1 = list(self.row_info.loc[row, ['digest_table_id',
+                                    'digest_table_year',
+                                    'digest_table_sub_id',
+                                    'digest_table_sub_title',
+                                    'row_index']].values) + [col, cell_note_1]
+                    df_row = pd.DataFrame(l1, index=col_list).T
+                    cell_info = cell_info.append(df_row, ignore_index=True)
+
+                    l2 = list(self.row_info.loc[row, ['digest_table_id',
+                                    'digest_table_year',
+                                    'digest_table_sub_id',
+                                    'digest_table_sub_title',
+                                    'row_index']].values) + [col, cell_note_2]
+                    df_row = pd.DataFrame(l2, index=col_list).T
+                    cell_info = cell_info.append(df_row, ignore_index=True)
+
         
         # replaces single footnote cells
         cell_info['cell_note'] = cell_info['cell_note'].replace(self.footnotes)
