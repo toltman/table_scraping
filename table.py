@@ -52,6 +52,9 @@ class Table():
         # removed
         # adds value_represents to col_info or cell_info
         # self.find_value_represents()
+        
+        # clean up row_info footnotes
+        self.clean_up_rowinfo()
 
         # gets location values of the table
         # sets table.info.location_in, row_info.location and/or col_info.location_type
@@ -60,9 +63,6 @@ class Table():
         # gets the year and adds table_info.year_in
         # sets table.info.year_in, row_info.year and/or col_info.year
         self.find_table_year()
-
-        # clean up row_info footnotes
-        self.clean_up_rowinfo()
 
         # drop if all null
         self.drop_if_all_null()
@@ -273,6 +273,8 @@ class Table():
             location_in = "Row"
 
         self.table_info.insert(4, "location_in", location_in)
+        self.table_info.insert(5, "location", "")
+        self.table_info.insert(6, "Location_info", "")
 
         # create location and location_type cols
         self.row_info.insert(20, 'location', "")
@@ -294,6 +296,12 @@ class Table():
             self.row_info.loc[is_total, 'row_level_2'] = self.row_info.loc[is_total, 'row_level_1']
 
             self.row_info['location_type'] =  stub_head
+        
+        if ~(location_in in ['Row', 'Column']):
+            location_in = "Title"
+            self.table_info['location_in'] = location_in
+            self.table_info['location'] = "United States"
+            self.table_info['Location_info'] = ""
 
 
 
@@ -318,52 +326,59 @@ class Table():
             year_in = "Title"
 
         self.table_info.insert(5, 'year_in', year_in)
-        self.row_info.insert(20,'year', year)
-        self.col_info.insert(6, 'year', year)
+        self.table_info.insert(6, 'year', year)
+        self.row_info.insert(20,'year', '')
+        self.col_info.insert(6, 'year', '')
 
         # finds rows matching year format
         if year_in == "":
-            row_levels = [f"row_level_{i+1}" for i in range(0, self.ROW_LEVELS)]
-            for row_level in row_levels:
-                year1 = self.row_info[row_level].str.match(r"\d{4}")
-                year2 = self.row_info[row_level].str.match(r"\d{4}–\d{2}")
-                year3 = self.row_info[row_level].str.match(r"\d{4}-\d{2}")
-                year4 = self.row_info[row_level].str.match(r"1999-2000")
-                year5 = self.row_info[row_level].str.match(r"Fall \d{4}")
-                year6 = self.row_info[row_level].str.match(r"fall \d{4}")
-                year7 = self.row_info[row_level].str.match(r"Spring \d{4}")
-                year8 = self.row_info[row_level].str.match(r"spring \d{4}")
+            row_list = [f"row_level_{i+1}" for i in range(0, self.ROW_LEVELS)]
+            year_col = []
 
-                years = year1 | year2 | year3 | year4 | year5 | year6 | year7 | year8
+            for index, row in self.row_info.iterrows():
+                year_col.append(self.get_year(row[row_list]))
+            
+            year_series = pd.Series(year_col)
+            year_series = year_series.replace('', np.nan)
 
-                if years.all():
-                    year_in = "Row"
-                    self.row_info['year'] = self.row_info[row_level]
-                    self.table_info['year_in'] = year_in
+            if year_series.notnull().any():
+                year_in = "Row"
+                self.row_info['year'] = year_col
+                self.table_info['year_in'] = year_in
 
-                
+        # finds cols matching year format
         if year_in == "":
-            col_levels = [f"column_level_{i+1}" for i in range(0, self.ROW_LEVELS)]
-            for col_level in col_levels:
-                year1 = self.col_info[col_level].str.match(r"\d{4}")
-                year2 = self.col_info[col_level].str.match(r"\d{4}–\d{2}")
-                year3 = self.col_info[col_level].str.match(r"\d{4}-\d{2}")
-                year4 = self.col_info[col_level].str.match(r"1999-2000")
-                year5 = self.col_info[col_level].str.match(r"Fall \d{4}")
-                year6 = self.col_info[col_level].str.match(r"fall \d{4}")
-                year7 = self.col_info[col_level].str.match(r"Spring \d{4}")
-                year8 = self.col_info[col_level].str.match(r"spring \d{4}")
+            col_list = [f"column_level_{i+1}" for i in range(0, self.COL_LEVELS)]
+            year_col = []
 
-                years = year1 | year2 | year3 | year4 | year5 | year6 | year7 | year8
+            for index, row in self.col_info.iterrows():
+                year_col.append(self.get_year(row[col_list]))
 
-                if years.all():
-                    year_in = "Column"
-                    self.col_info['year'] = self.col_info[col_level]
-                    self.table_info['year_in'] = year_in
+            year_series = pd.Series(year_col)
+            year_series = year_series.replace('', np.nan)
+
+            if year_series.notnull().any():
+                year_in = "Column"
+                self.col_info['year'] = year_col
+                self.table_info['year_in'] = year_in
         
         if year_in == "":
             year_in = "Title"
             self.table_info['year_in'] = year_in
+
+    def get_year(self, series):
+        """Helper function to get year matches from a series"""
+
+        year1 = series.str.extract(r".*(\d{4})\s?$")
+        year2 = series.str.extract(r".*(\d{4}–\d{2}).*")
+        year3 = series.str.extract(r".*(\d{4}-\d{2}).*")
+        year4 = series.str.extract(r".*(1999-2000).*")
+    
+        years_df = pd.concat([year1, year2, year3, year4], axis=1)
+        
+        years_series = years_df.apply(lambda x: ','.join(x.dropna().astype(str)),axis=1)
+        
+        return ''.join(years_series)
 
 
 
@@ -588,8 +603,8 @@ class Table():
             refs = col.str.extract(r"\\([0-9]),?([0-9])?\\")
             refs = refs.replace(self.footnotes)
             refs = refs.fillna("")
-            s = refs[0] + " ; " + refs[1]
-            s = s.replace(regex = r" ; $", value = "")
+            s = refs[0] + " ::: " + refs[1]
+            s = s.replace(regex = r" ::: $", value = "")
             
             # create new column with the reference note
             col_info[f"column_ref_note_{x+1}"] = s
@@ -719,8 +734,8 @@ class Table():
             refs = col.str.extract(r"\\([0-9]),?([0-9])?\\")
             refs = refs.replace(self.footnotes)
             refs = refs.fillna("")
-            s = refs[0] + " ; " + refs[1]
-            s = s.replace(regex = r" ; $", value = "")
+            s = refs[0] + " ::: " + refs[1]
+            s = s.replace(regex = r" ::: $", value = "")
             
             # create new column with the reference note
             row_levels[f"row_ref_note_{x+1}"] = s
@@ -855,7 +870,7 @@ class Table():
         ]
         cell_info = pd.DataFrame(columns=col_list)
 
-        symbols = ['–––', '(–––)', '---', '(---)', '†', '(†)', '#', '(#)', '!', '‡', '*']
+        symbols = ['---', '(---)',  ' ---', ' (---)', '†', '(†)', '#', '(#)', '!', '‡', '*']
         footnotes = ['Not available.',
                     'Not available.',
                     'Not available.',
