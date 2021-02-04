@@ -110,14 +110,25 @@ class Table():
         # sets the correct order of columns
         self.order_cols()
 
-        # merge cell_ref_note and cell_special_note
-        self.merge_cell_notes()
+        # clean hyphens based on dictionary words
+        self.clean_hyphens_dict()
 
 
 
-    def merge_cell_notes(self):
-            pass
+    def clean_hyphens_dict(self):
+        """Cleans hyphens out of all tables based on provided dictionary"""
 
+        try:
+            hyphen_df = pd.read_csv("scraping_dictionary.csv")
+            hyphen_dict = dict(zip(hyphen_df['hyphenated'], hyphen_df['corrected']))
+
+            self.table_info = self.table_info.replace(hyphen_dict, regex=True)
+            self.row_info = self.row_info.replace(hyphen_dict, regex=True)
+            self.col_info = self.col_info.replace(hyphen_dict, regex=True)
+            self.cell_info = self.cell_info.replace(hyphen_dict, regex=True)
+
+        except FileNotFoundError:
+            print("scraping_dictionary.csv is missing!")
 
 
 
@@ -852,7 +863,7 @@ class Table():
         df.insert(4, 'row_index', np.arange(1,df.shape[0]+1))
 
         # remove YYYY.0 from years
-        df = df.replace(r"(\d{4})\.0", r"\1", regex=True)
+        df = df.replace(r"^(\d{4})\.0$", r"\1", regex=True)
 
         return df
 
