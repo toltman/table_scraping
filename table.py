@@ -89,7 +89,16 @@ class Table():
         self.add_has_SE()
 
         # add column is_total
-        self.add_col_is_total()
+        # self.add_col_is_total()
+
+        # add standard_error
+        self.add_standard_error()
+
+        # add is_dollar
+        self.add_is_dollar()
+
+        # add format_string
+        self.add_format_string()
 
         # replace all nan with ""
         self.clean_nan()
@@ -115,7 +124,7 @@ class Table():
     def order_cols(self):
         cols = [
             'digest_table_id', 'digest_table_year', 'digest_table_sub_id', 'digest_table_sub_title', 
-            'column_index', 'is_total', 'year', 'location', 'location_type', 
+            'column_index', 'standard_error', 'is_dollar', 'format_string', 'year', 'location', 'location_type', 
             'column_level_1', 'column_level_2', 'column_level_3', 'column_level_4', 'column_level_5', 
             'column_level_6', 'column_level_7', 'column_ref_note_1', 'column_ref_note_2', 'column_ref_note_3', 
             'column_ref_note_4', 'column_ref_note_5', 'column_ref_note_6', 'column_ref_note_7'
@@ -128,6 +137,14 @@ class Table():
     def add_col_is_total(self):
         self.col_info.insert(6, 'is_total', 'FALSE')
 
+    def add_standard_error(self):
+        self.col_info.insert(6, 'standard_error', 'FALSE')
+
+    def add_is_dollar(self):
+        self.col_info.insert(6, 'is_dollar', '')
+
+    def add_format_string(self):
+        self.col_info.insert(6, 'format_string', '')
 
 
     def add_has_SE(self):
@@ -286,7 +303,7 @@ class Table():
 
         if location_in == "Row" and stub_head == "Region and year":
             self.row_info['location'] = self.row_info['row_level_1']
-            self.row_info['location_type'] = stub_head # "Region"
+            self.row_info['location_type'] = "Region"
         elif location_in == "Row":
             self.row_info['location'] = self.row_info['row_level_2']
 
@@ -603,8 +620,8 @@ class Table():
             refs = col.str.extract(r"\\([0-9]),?([0-9])?\\")
             refs = refs.replace(self.footnotes)
             refs = refs.fillna("")
-            s = refs[0] + " ::: " + refs[1]
-            s = s.replace(regex = r" ::: $", value = "")
+            s = refs[0] + ":::" + refs[1]
+            s = s.replace(regex = r":::$", value = "")
             
             # create new column with the reference note
             col_info[f"column_ref_note_{x+1}"] = s
@@ -637,6 +654,7 @@ class Table():
         for col in range(0, col_info.shape[1]):
             new_col = col_info.iloc[:,col].str.strip()
             new_col = new_col.str.replace(r"\.\.+", "", regex=True)
+            new_col = new_col.str.replace("/\n", "/")
             new_col = new_col.str.replace("\n", " ")
             new_col = new_col.str.replace("- ", "")
             col_info.iloc[:,col] = new_col
@@ -734,8 +752,8 @@ class Table():
             refs = col.str.extract(r"\\([0-9]),?([0-9])?\\")
             refs = refs.replace(self.footnotes)
             refs = refs.fillna("")
-            s = refs[0] + " ::: " + refs[1]
-            s = s.replace(regex = r" ::: $", value = "")
+            s = refs[0] + ":::" + refs[1]
+            s = s.replace(regex = r":::$", value = "")
             
             # create new column with the reference note
             row_levels[f"row_ref_note_{x+1}"] = s
