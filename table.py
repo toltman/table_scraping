@@ -312,11 +312,12 @@ class Table():
         self.col_info.insert(6, 'location', "")
         self.col_info.insert(7, 'location_type', "")
 
+        # location variable should be set to lowest level row_level
         if location_in == "Row" and stub_head == "Region and year":
-            self.row_info['location'] = self.row_info['row_level_1']
+            self.row_info['location'] = self.row_info.apply(self.lowest_level, axis=1)
             self.row_info['location_type'] = "Region"
         elif location_in == "Row":
-            self.row_info['location'] = self.row_info['row_level_2']
+            self.row_info['location'] = self.row_info.apply(self.lowest_level, axis=1)
 
             # fixes issue with 'United States' appearing in the is_total row of table
             is_total = self.row_info['is_total'] == 'TRUE'
@@ -331,6 +332,14 @@ class Table():
             self.table_info['location'] = "United States"
             self.table_info['Location_info'] = ""
 
+
+    def lowest_level(self, row):
+        location = ""
+        row_levels = [f"row_level_{x}" for x in range(1,8)]
+        for row_level in row_levels:
+            if row[row_level] != "":
+                location = row[row_level]
+        return location
 
 
     def find_table_year(self):
