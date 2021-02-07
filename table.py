@@ -403,11 +403,11 @@ class Table():
         """finds and sets year_in, and year values"""
         # check title for year
         # title ends in YYYY or YYYY-YY
-        year1 = re.search(r": (\d{4})$", self.title)
-        year2 = re.search(r": (\d{4}–\d{2})$", self.title)
-        year3 = re.search(r": (\d{4}-\d{2})$", self.title)
-        year4 = re.search(r": ([Ff]all \d{4})$", self.title)
-        year5 = re.search(r": ([Ss]pring \d{4})$", self.title)
+        year1 = re.search(r": (\d{4})\s*$", self.title)
+        year2 = re.search(r": (\d{4}–\d{2})\s*$", self.title)
+        year3 = re.search(r": (\d{4}-\d{2})\s*$", self.title)
+        year4 = re.search(r": ([Ff]all \d{4})\s*$", self.title)
+        year5 = re.search(r": ([Ss]pring \d{4})\s*$", self.title)
 
         year = ""
         if year1:
