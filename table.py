@@ -60,15 +60,19 @@ class Table():
         # sets table.info.location_in, row_info.location and/or col_info.location_type
         self.find_location()
 
-        # gets the year and adds table_info.year_in
-        # sets table.info.year_in, row_info.year and/or col_info.year
-        self.find_table_year()
 
         # drop if all null
         self.drop_if_all_null()
 
         # clean up multiple whitespace
         self.clean_whitespace()
+
+        # remove all elipses
+        self.remove_ellipsis()
+
+        # gets the year and adds table_info.year_in
+        # sets table.info.year_in, row_info.year and/or col_info.year
+        self.find_table_year()
 
         # convert all to string
         self.convert_to_string()
@@ -113,6 +117,51 @@ class Table():
         # clean hyphens based on dictionary words
         self.clean_hyphens_dict()
 
+        # replace "/ "
+        self.replace_slash_space()
+
+        # add subtitle note field
+        self.add_subtitle_footnote()
+
+        # remove extra row/col levels
+        self.remove_levels()
+
+    
+
+    def remove_levels(self):
+        pass
+    
+
+    def add_subtitle_footnote(self):
+        col = self.table_info["digest_table_sub_title"]
+        refs = col.str.extract(r"\\([0-9]),?([0-9])?\\")
+        refs = refs.replace(self.footnotes)
+        refs = refs.fillna("")
+        s = refs[0] + ":::" + refs[1]
+        s = s.replace(r":::$", "", regex=True)
+        self.table_info.insert(4, 'digest_table_sub_title_note', s)
+        self.table_info = self.table_info.replace(r"\\([0-9]),?([0-9])?\\", "", regex=True)
+
+    def remove_ellipsis(self):
+        self.table_info = self.table_info.replace(' …', '', regex=True)
+        self.row_info = self.row_info.replace(' …', '', regex=True)
+        self.col_info = self.col_info.replace(' …', '', regex=True)
+        self.cell_info = self.cell_info.replace(' …', '', regex=True)
+
+        self.table_info = self.table_info.replace('…', '', regex=True)
+        self.row_info = self.row_info.replace('…', '', regex=True)
+        self.col_info = self.col_info.replace('…', '', regex=True)
+        self.cell_info = self.cell_info.replace('…', '', regex=True)
+
+
+
+    def replace_slash_space(self):
+        """Replaces all instances of '/ ' with '/' """
+
+        self.table_info = self.table_info.replace(r"/ ", "/", regex=True)
+        self.row_info = self.row_info.replace(r"/ ", "/", regex=True)
+        self.col_info = self.col_info.replace(r"/ ", "/", regex=True)
+
 
 
     def clean_hyphens_dict(self):
@@ -135,7 +184,7 @@ class Table():
     def order_cols(self):
         cols = [
             'digest_table_id', 'digest_table_year', 'digest_table_sub_id', 'digest_table_sub_title', 
-            'column_index', 'standard_error', 'is_dollar', 'format_string', 'year', 'location', 'location_type', 
+            'column_index', 'is_standard_error', 'is_dollar', 'format_string', 'year', 'location', 'location_type', 
             'column_level_1', 'column_level_2', 'column_level_3', 'column_level_4', 'column_level_5', 
             'column_level_6', 'column_level_7', 'column_ref_note_1', 'column_ref_note_2', 'column_ref_note_3', 
             'column_ref_note_4', 'column_ref_note_5', 'column_ref_note_6', 'column_ref_note_7'
@@ -149,13 +198,16 @@ class Table():
         self.col_info.insert(6, 'is_total', 'FALSE')
 
     def add_standard_error(self):
-        self.col_info.insert(6, 'standard_error', 'FALSE')
+        self.col_info.insert(6, 'is_standard_error', 'FALSE')
+        self.cell_info.insert(4,'is_standard_error', 'FALSE')
 
     def add_is_dollar(self):
         self.col_info.insert(6, 'is_dollar', '')
+        self.cell_info.insert(5, 'is_dollar', '')
 
     def add_format_string(self):
         self.col_info.insert(6, 'format_string', '')
+        self.cell_info.insert(6, 'format_string', '')
 
 
     def add_has_SE(self):
@@ -292,6 +344,7 @@ class Table():
             'State',
             'Name of district',
             'State or jurisdiction',
+            'Region, state, and jurisdiction'
         ]
 
         # identify location by the stubhead
@@ -302,7 +355,7 @@ class Table():
 
         self.table_info.insert(4, "location_in", location_in)
         self.table_info.insert(5, "location", "")
-        self.table_info.insert(6, "Location_info", "")
+        self.table_info.insert(6, "location_info", "")
 
         # create location and location_type cols
         self.row_info.insert(20, 'location', "")
@@ -320,17 +373,17 @@ class Table():
             self.row_info['location'] = self.row_info.apply(self.lowest_level, axis=1)
 
             # fixes issue with 'United States' appearing in the is_total row of table
-            is_total = self.row_info['is_total'] == 'TRUE'
-            self.row_info.loc[is_total, 'location'] = self.row_info.loc[is_total, 'row_level_1']
-            self.row_info.loc[is_total, 'row_level_2'] = self.row_info.loc[is_total, 'row_level_1']
+            # is_total = self.row_info['is_total'] == 'TRUE'
+            # self.row_info.loc[is_total, 'location'] = self.row_info.loc[is_total, 'row_level_1']
+            # self.row_info.loc[is_total, 'row_level_2'] = self.row_info.loc[is_total, 'row_level_1']
 
             self.row_info['location_type'] =  stub_head
         
-        if ~(location_in in ['Row', 'Column']):
+        if (location_in not in ['Row', 'Column']):
             location_in = "Title"
             self.table_info['location_in'] = location_in
             self.table_info['location'] = "United States"
-            self.table_info['Location_info'] = ""
+            self.table_info['location_info'] = ""
 
 
     def lowest_level(self, row):
@@ -406,13 +459,20 @@ class Table():
     def get_year(self, series):
         """Helper function to get year matches from a series"""
 
-        year1 = series.str.extract(r".*(\d{4})\s?$")
-        year2 = series.str.extract(r".*(\d{4}–\d{2}).*")
-        year3 = series.str.extract(r".*(\d{4}-\d{2}).*")
-        year4 = series.str.extract(r".*(1999-2000).*")
-    
-        years_df = pd.concat([year1, year2, year3, year4], axis=1)
-        
+        year1 = series.str.extract(r"^\s*(\d{4})\s*$")
+        year2 = series.str.extract(r"(.*\d{4}–\d{2})\s*$")
+        year3 = series.str.extract(r"(.*\d{4}-\d{2})\s*$")
+        year4 = series.str.extract(r"(.*\d{4}–\d{4})")
+        year5 = series.str.extract(r"(.*\d{4}-\d{4})")
+        year6 = series.str.extract(r".*(\d{4} to \d{4}).*")
+        year7 = series.str.extract(r".*([Ff]all \d{4}).*")
+        year8 = series.str.extract(r".*([Ss]pring \d{4}).*$")
+        year9 = series.str.extract(r", (\d{4})\s*$")
+
+        years_df = pd.concat([
+            year1, year2, year3, year4, year5, year6, year7, year8, year9
+            ], axis=1)
+
         years_series = years_df.apply(lambda x: ','.join(x.dropna().astype(str)),axis=1)
         
         return ''.join(years_series)
@@ -459,7 +519,7 @@ class Table():
     def get_title_lines(self):
         tlines = 1
 
-        if re.match(r"\[.*\]", self.sheet.cell_value(1,0)):
+        if re.match(r"\s*\[.*\]\s*", self.sheet.cell_value(1,0)):
             tlines = 2
 
         return tlines
@@ -678,6 +738,9 @@ class Table():
             new_col = new_col.str.replace("\n", " ")
             new_col = new_col.str.replace("- ", "")
             col_info.iloc[:,col] = new_col
+
+        # remove YYYY.0 from years
+        col_info = col_info.replace(r"^(\d{4})\.0$", r"\1", regex=True)
 
         return col_info
 
