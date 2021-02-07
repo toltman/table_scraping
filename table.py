@@ -377,8 +377,9 @@ class Table():
 
             # fixes issue with 'United States' appearing in the is_total row of table
             # is_total = self.row_info['is_total'] == 'TRUE'
-            # self.row_info.loc[is_total, 'location'] = self.row_info.loc[is_total, 'row_level_1']
             # self.row_info.loc[is_total, 'row_level_2'] = self.row_info.loc[is_total, 'row_level_1']
+            
+            # self.row_info.loc[is_total, 'location'] = self.row_info.loc[is_total, 'row_level_1']
 
             self.row_info['location_type'] =  stub_head
         
@@ -405,6 +406,8 @@ class Table():
         year1 = re.search(r": (\d{4})$", self.title)
         year2 = re.search(r": (\d{4}–\d{2})$", self.title)
         year3 = re.search(r": (\d{4}-\d{2})$", self.title)
+        year4 = re.search(r": ([Ff]all \d{4})$", self.title)
+        year5 = re.search(r": ([Ss]pring \d{4})$", self.title)
 
         year = ""
         if year1:
@@ -413,9 +416,14 @@ class Table():
             year = year2.group(1)
         if year3:
             year = year3.group(1)
+        if year4:
+            year = year4.group(1)
+        if year5:
+            year = year5.group(1)
+            
         
         year_in = ""
-        if year1 or year2 or year3:
+        if year1 or year2 or year3 or year4 or year5:
             year_in = "Title"
 
         self.table_info.insert(5, 'year_in', year_in)
@@ -662,8 +670,8 @@ class Table():
     def get_special_notes(self):
         """Returns special notes dict"""
 
+        # old way of doing this
         # footnotes = df[0].str.extract(r"\\([0-9])\\(.*)").dropna().set_index(0)
-        # dict(zip(symbols, footnotes))
         # symbols = [
         #     '---', '(---)',
         #     '†', '(†)', 
@@ -680,6 +688,8 @@ class Table():
         #             'Reporting standards not met. Either there are too few cases for a reliable estimate or the coefficient of variation (CV) for this estimate is 50 percent or greater.',
         #             'p < .05 significance level.'
         #             ]
+
+        # return dict(zip(symbols, footnotes))
 
         s = self.raw_df[0]
         spec_notes = s.str.extract(r"^(---|[†‡#!])(.*)").dropna().set_index(0)
@@ -830,7 +840,7 @@ class Table():
             indents = self.get_leading_spaces(cell.value)
             is_total = is_bold and (indents == 3 or indents == 5)
 
-            
+            # identifying subtable titles
             if is_empty and self.sheet.cell(row,1).value.strip() != "":
                 subtitle = self.sheet.cell(row, 1).value
             
