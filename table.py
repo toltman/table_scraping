@@ -141,6 +141,9 @@ class Table():
         s = s.replace(r":::$", "", regex=True)
         self.table_info.insert(4, 'digest_table_sub_title_note', s)
         self.table_info = self.table_info.replace(r"\\([0-9]),?([0-9])?\\", "", regex=True)
+        self.row_info = self.row_info.replace(r"\\([0-9]),?([0-9])?\\", "", regex=True)
+        self.col_info = self.col_info.replace(r"\\([0-9]),?([0-9])?\\", "", regex=True)
+        self.cell_info = self.cell_info.replace(r"\\([0-9]),?([0-9])?\\", "", regex=True)
 
     def remove_ellipsis(self):
         self.table_info = self.table_info.replace(' …', '', regex=True)
@@ -656,6 +659,42 @@ class Table():
         return footnotes.to_dict()[1]
 
 
+    def get_special_notes(self):
+        """Returns special notes dict"""
+
+        # footnotes = df[0].str.extract(r"\\([0-9])\\(.*)").dropna().set_index(0)
+        # dict(zip(symbols, footnotes))
+        # symbols = [
+        #     '---', '(---)',
+        #     '†', '(†)', 
+        #     '#', '(#)', 
+        #     '!', 
+        #     '‡', 
+        #     '*'
+        #     ]
+
+        # footnotes = ['Not available.', 'Not available.',
+        #             'Not applicable.', 'Not applicable.',
+        #             'Rounds to zero.', 'Rounds to zero.',
+        #             'Interpret data with caution. The coefficient of variation (CV) for this estimate is between 30 and 50 percent.',
+        #             'Reporting standards not met. Either there are too few cases for a reliable estimate or the coefficient of variation (CV) for this estimate is 50 percent or greater.',
+        #             'p < .05 significance level.'
+        #             ]
+
+        s = self.raw_df[0]
+        spec_notes = s.str.extract(r"^(---|[†‡#!])(.*)").dropna().set_index(0)
+        spec_dict = spec_notes.to_dict()[1]
+
+        paren_entries = {}
+        for entry in spec_dict:
+            paren_entries['(' + entry + ')'] = spec_dict[entry]
+    
+        spec_dict.update(paren_entries)
+
+        return spec_dict
+
+
+
     def parse_col_info(self):
         """Returns dataframe with column information"""
 
@@ -971,29 +1010,16 @@ class Table():
         ]
         cell_info = pd.DataFrame(columns=col_list)
 
-        symbols = ['---', '(---)',  ' ---', ' (---)', '†', '(†)', '#', '(#)', '!', '‡', '*']
-        footnotes = ['Not available.',
-                    'Not available.',
-                    'Not available.',
-                    'Not available.',
-                    'Not applicable.',
-                    'Not applicable.',
-                    'Rounds to zero.',
-                    'Rounds to zero.',
-                    'Interpret data with caution. The coefficient of variation (CV) for this estimate is between 30 and 50 percent.',
-                    'Reporting standards not met. Either there are too few cases for a reliable estimate or the coefficient of variation (CV) for this estimate is 50 percent or greater.',
-                    'p < .05 significance level.'
-                    ]
-        symbol_dict = dict(zip(symbols, footnotes))
+        symbol_dict = self.get_special_notes()
 
         for row in data.index:
             for col in data.columns:
                 
-                cell_val = str(data.loc[row, col])
+                cell_val = str(data.loc[row, col]).strip()
                 
                 has_fn = re.match(r".*\\([0-9])\\", cell_val)
                 has_multi_fn = re.match(r".*\\([0-9]),([0-9])\\", cell_val)
-                is_spec = cell_val in symbols
+                is_spec = cell_val in list(symbol_dict.keys())
                 has_exclam = re.match(r".*!$", cell_val)
                 
                 cell_note_1 = ""
