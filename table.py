@@ -569,8 +569,10 @@ class Table():
         stub_head = sh.cell_value(tlines,0)
 
         # general_note
+        general_note = ""
         general = df[0].str.extract(r"NOTE: (.*)").dropna()
-        general_note = general[0].values[0].strip()
+        if (not general.empty):
+            general_note = general[0].values[0].strip()
 
         # source
         source = df[0].str.extract(r"SOURCE: (.*)\((.*)\)").dropna()
@@ -821,7 +823,9 @@ class Table():
             return 0
     
     def parse_row_info(self):
-        row_level = 0
+        total_level = 0
+        super_total_level = 0
+        bold_level = 0
         indent_level = 0
         rows = self.end_row - self.header_lines
         subtitle = ""
@@ -838,7 +842,8 @@ class Table():
             is_bold = bool(self.font[cell_xf.font_index].bold)
             is_empty = bool(cell.value == "")
             indents = self.get_leading_spaces(cell.value)
-            is_total = is_bold and (indents == 3 or indents == 5)
+            is_total = is_bold and indents == 3
+            is_super_total = is_bold and indents == 5
 
             # identify end of total (double lines) above
             cell_above = self.sheet.cell(row-1, 1)
@@ -849,11 +854,14 @@ class Table():
             cell_over_xf = self.book.xf_list[cell_over.xf_index]
             cell_over_top_border = cell_over_xf.border.top_line_style
 
-            # reset row_level back to 0
+            # reset total_level back to 0
             if cell_above_btm_border == 6 or cell_over_top_border == 6:
-                row_level = 0
+                total_level = 0
 
-
+            # Concats cell.value for multi-row cells
+            cell_value = cell.value
+            if indents == 3 and not is_bold:
+                cell_value = self.sheet.cell(row-1, 0).value + cell.value
 
             # identifying subtable titles
             if is_empty and self.sheet.cell(row,1).value.strip() != "":
@@ -865,23 +873,28 @@ class Table():
             else:
                 indent_level = indents / 2
             
-            
-            if is_total:
-                row_level = 0
+            if is_super_total:
+                super_total_level = max(super_total_level-1, 0)
                 row_levels.loc[row, "subtitle"] = subtitle
                 row_levels.loc[row, "is_total"] = "TRUE"
-                row_levels.loc[row, row_level] = cell.value
-                row_level = 1
+                row_levels.loc[row, super_total_level] = cell_value
+                super_total_level += 1
+            elif is_total:
+                total_level = max(total_level-1, 0)
+                row_levels.loc[row, "subtitle"] = subtitle
+                row_levels.loc[row, "is_total"] = "TRUE"
+                row_levels.loc[row, super_total_level+total_level+bold_level] = cell_value
+                total_level += 1
             elif is_bold:
-                row_level = 0
+                bold_level = max(bold_level-1, 0)
                 row_levels.loc[row, "subtitle"] = subtitle
                 row_levels.loc[row, "is_total"] = "FALSE"
-                row_levels.loc[row, row_level] = cell.value
-                row_level = 1
+                row_levels.loc[row, super_total_level+total_level+bold_level+indent_level] = cell_value
+                bold_level += 1
             else: 
                 row_levels.loc[row, "subtitle"] = subtitle
                 row_levels.loc[row, "is_total"] = "FALSE"
-                row_levels.loc[row, row_level+indent_level] = cell.value
+                row_levels.loc[row, super_total_level+total_level+max(bold_level, indent_level)] = cell_value
         
         # forward fill row levels
         row_levels = row_levels.replace('', np.nan)
@@ -953,7 +966,7 @@ class Table():
 
         for i in fn_cols.index:
             if fn_cols[i]:
-                fn_col = df_fn.loc[:, i].fillna("")
+                fn_col = df_fn.loc[:, i].fillna("").astype(str)
                 prev_col = df_fn.loc[:, i-1].fillna("").astype(str)
                 df_fn.loc[:, i-1] = prev_col + fn_col
 
