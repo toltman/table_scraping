@@ -394,7 +394,7 @@ class Table():
         location = ""
         row_levels = [f"row_level_{x}" for x in range(1,8)]
         for row_level in row_levels:
-            if row[row_level] != "":
+            if row[row_level] != "" and not re.search(r"\s*(\d{4})\s*", row[row_level]):
                 location = row[row_level]
         return location
 
@@ -840,6 +840,21 @@ class Table():
             indents = self.get_leading_spaces(cell.value)
             is_total = is_bold and (indents == 3 or indents == 5)
 
+            # identify end of total (double lines) above
+            cell_above = self.sheet.cell(row-1, 1)
+            cell_above_xf = self.book.xf_list[cell_above.xf_index]
+            cell_above_btm_border = cell_above_xf.border.bottom_line_style
+
+            cell_over = self.sheet.cell(row, 1)
+            cell_over_xf = self.book.xf_list[cell_over.xf_index]
+            cell_over_top_border = cell_over_xf.border.top_line_style
+
+            # reset row_level back to 0
+            if cell_above_btm_border == 6 or cell_over_top_border == 6:
+                row_level = 0
+
+
+
             # identifying subtable titles
             if is_empty and self.sheet.cell(row,1).value.strip() != "":
                 subtitle = self.sheet.cell(row, 1).value
@@ -867,8 +882,9 @@ class Table():
                 row_levels.loc[row, "subtitle"] = subtitle
                 row_levels.loc[row, "is_total"] = "FALSE"
                 row_levels.loc[row, row_level+indent_level] = cell.value
-            
+        
         # forward fill row levels
+        row_levels = row_levels.replace('', np.nan)
         row_levels = row_levels.ffill(axis=1).ffill(axis=0)
         is_duplicate = row_levels.apply(lambda row: row.duplicated(), axis=1)
         row_levels = row_levels.where(~is_duplicate, "")
