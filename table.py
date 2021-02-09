@@ -126,6 +126,43 @@ class Table():
         # remove extra row/col levels
         self.remove_levels()
 
+        # remove col_level_2 from 213.10
+        self.remove_col()
+
+        # fix is_total in 203.65 and 303.30
+        self.fix_is_total()
+
+    
+
+    
+
+    def fix_is_total(self):
+        if self.id == "203.65":
+            is_total = self.row_info['row_level_2'].str.strip() == 'Total'
+            self.row_info['is_total'] = is_total
+        if self.id == '303.40':
+            self.row_info.loc[29:, 'row_level_4'] = self.row_info.loc[29:, 'row_level_3'].values
+            self.row_info.loc[29:, 'row_level_3'] = self.row_info.loc[29:, 'row_level_2'].values
+            self.row_info.loc[29:, 'row_level_2'] = self.row_info.loc[29:, 'row_level_1'].values
+            self.row_info.loc[29:, 'row_level_1'] = 'All students'
+
+            is_bold = []
+            for i in range(5,77):
+                cell_xf = self.sheet.cell(i,0).xf_index
+                font_index = self.book.xf_list[cell_xf].font_index
+                is_bold.append(self.font[font_index].bold)
+            
+            is_total = ['TRUE' if x==1 else 'FALSE' for x in is_bold]
+
+            self.row_info['is_total'] = is_total
+
+    
+
+    def remove_col(self):
+        if self.id == "213.10":
+            self.col_info['column_level_2'] = self.col_info['column_level_3']
+            self.col_info['column_level_3'] = ""
+
     
 
     def remove_levels(self):
@@ -352,13 +389,13 @@ class Table():
 
         # identify location by the stubhead
         location_in = ""
-        stub_head = self.table_info['stub_head'].values[0]
+        stub_head = self.table_info['stub_head'].values[0].strip()
         if stub_head in row_location_list:
             location_in = "Row"
 
         self.table_info.insert(4, "location_in", location_in)
         self.table_info.insert(5, "location", "")
-        self.table_info.insert(6, "location_info", "")
+        self.table_info.insert(6, "location_type", "")
 
         # create location and location_type cols
         self.row_info.insert(20, 'location', "")
@@ -387,7 +424,7 @@ class Table():
             location_in = "Title"
             self.table_info['location_in'] = location_in
             self.table_info['location'] = "United States"
-            self.table_info['location_info'] = ""
+            self.table_info['location_type'] = "Region"
 
 
     def lowest_level(self, row):
@@ -467,26 +504,29 @@ class Table():
             year_in = "Title"
             self.table_info['year_in'] = year_in
 
+
+
     def get_year(self, series):
         """Helper function to get year matches from a series"""
 
         year1 = series.str.extract(r"^\s*(\d{4})\s*$")
-        year2 = series.str.extract(r"(.*\d{4}–\d{2})\s*$")
-        year3 = series.str.extract(r"(.*\d{4}-\d{2})\s*$")
-        year4 = series.str.extract(r"(.*\d{4}–\d{4})")
-        year5 = series.str.extract(r"(.*\d{4}-\d{4})")
+        year2 = series.str.extract(r".*(\d{4}–\d{2})\s*$")
+        year3 = series.str.extract(r".*(\d{4}-\d{2})\s*$")
+        year4 = series.str.extract(r".*(\d{4}–\d{4})")
+        year5 = series.str.extract(r".*(\d{4}-\d{4})")
         year6 = series.str.extract(r".*(\d{4} to \d{4}).*")
         year7 = series.str.extract(r".*([Ff]all \d{4}).*")
         year8 = series.str.extract(r".*([Ss]pring \d{4}).*$")
         year9 = series.str.extract(r", (\d{4})\s*$")
+        year10 = series.str.extract(r".*(\d{4}-\d{2} to \d{4}-\d{2}).*")
 
         years_df = pd.concat([
-            year1, year2, year3, year4, year5, year6, year7, year8, year9
+            year1, year2, year3, year4, year5, year6, year7, year8, year9, year10
             ], axis=1)
 
         years_series = years_df.apply(lambda x: ','.join(x.dropna().astype(str)),axis=1)
         
-        return ''.join(years_series)
+        return ''.join(years_series).split(',')[-1]
 
 
 
@@ -519,7 +559,7 @@ class Table():
         title_cell = re.sub(" +", " ", title_cell)
 
         title = ""
-        res = re.match(r"Table (\d{3}\.\d{2})\. (.*)", title_cell)
+        res = re.match(r"Table (\d{3}\.\d{2}[a-z]?)\. (.*)", title_cell)
 
         if res:
             title = res.group(2)
@@ -665,7 +705,7 @@ class Table():
         df = self.raw_df
 
         # Extract footnotes from raw df
-        footnotes = df[0].str.extract(r"\\([0-9])\\(.*)").dropna().set_index(0)
+        footnotes = df[0].str.extract(r"\\([0-9]+)\\(.*)").dropna().set_index(0)
         return footnotes.to_dict()[1]
 
 
@@ -748,7 +788,7 @@ class Table():
             col = col_info[f"column_level_{x+1}"].astype(str)
             
             # create a reference column with the footnote number
-            refs = col.str.extract(r"\\([0-9]),?([0-9])?\\")
+            refs = col.str.extract(r"\\([0-9]+),?([0-9]*)\\")
             refs = refs.replace(self.footnotes)
             refs = refs.fillna("")
             s = refs[0] + ":::" + refs[1]
@@ -758,7 +798,7 @@ class Table():
             col_info[f"column_ref_note_{x+1}"] = s
             
             # delete footnote from col_level_x
-            new_col = col.str.replace(r"\\([0-9]),?([0-9])?\\", "").str.strip()
+            new_col = col.str.replace(r"\\([0-9]+),?([0-9]*)\\", "").str.strip()
             col_info[f"column_level_{x+1}"] = new_col
 
 
@@ -824,7 +864,7 @@ class Table():
     
     def parse_row_info(self):
         total_level = 0
-        super_total_level = 0
+        # super_total_level = 0
         bold_level = 0
         indent_level = 0
         rows = self.end_row - self.header_lines
@@ -842,8 +882,8 @@ class Table():
             is_bold = bool(self.font[cell_xf.font_index].bold)
             is_empty = bool(cell.value == "")
             indents = self.get_leading_spaces(cell.value)
-            is_total = is_bold and indents == 3
-            is_super_total = is_bold and indents == 5
+            is_total = is_bold and (indents == 3 or indents == 5)
+            # is_super_total = is_bold and indents == 5
 
             # identify end of total (double lines) above
             cell_above = self.sheet.cell(row-1, 1)
@@ -856,7 +896,9 @@ class Table():
 
             # reset total_level back to 0
             if cell_above_btm_border == 6 or cell_over_top_border == 6:
-                total_level = 0
+                indents_above = self.get_leading_spaces(self.sheet.cell(row-1,0).value)
+                if not indents_above == 5:
+                    total_level = max(total_level-1, 0)
 
             # Concats cell.value for multi-row cells
             cell_value = cell.value
@@ -873,28 +915,27 @@ class Table():
             else:
                 indent_level = indents / 2
             
-            if is_super_total:
-                super_total_level = max(super_total_level-1, 0)
+            # if is_super_total:
+            #     super_total_level = max(super_total_level-1, 0)
+            #     row_levels.loc[row, "subtitle"] = subtitle
+            #     row_levels.loc[row, "is_total"] = "TRUE"
+            #     row_levels.loc[row, super_total_level] = cell_value
+            #     super_total_level += 1
+            if is_total:
                 row_levels.loc[row, "subtitle"] = subtitle
                 row_levels.loc[row, "is_total"] = "TRUE"
-                row_levels.loc[row, super_total_level] = cell_value
-                super_total_level += 1
-            elif is_total:
-                total_level = max(total_level-1, 0)
-                row_levels.loc[row, "subtitle"] = subtitle
-                row_levels.loc[row, "is_total"] = "TRUE"
-                row_levels.loc[row, super_total_level+total_level+bold_level] = cell_value
+                row_levels.loc[row, total_level+bold_level] = cell_value
                 total_level += 1
             elif is_bold:
                 bold_level = max(bold_level-1, 0)
                 row_levels.loc[row, "subtitle"] = subtitle
                 row_levels.loc[row, "is_total"] = "FALSE"
-                row_levels.loc[row, super_total_level+total_level+bold_level+indent_level] = cell_value
+                row_levels.loc[row, total_level+bold_level+indent_level] = cell_value
                 bold_level += 1
             else: 
                 row_levels.loc[row, "subtitle"] = subtitle
                 row_levels.loc[row, "is_total"] = "FALSE"
-                row_levels.loc[row, super_total_level+total_level+max(bold_level, indent_level)] = cell_value
+                row_levels.loc[row, total_level+max(bold_level, indent_level)] = cell_value
         
         # forward fill row levels
         row_levels = row_levels.replace('', np.nan)
@@ -910,7 +951,7 @@ class Table():
             col = row_levels[f"row_level_{x+1}"].astype(str)
             
             # create a reference column with the footnote number
-            refs = col.str.extract(r"\\([0-9]),?([0-9])?\\")
+            refs = col.str.extract(r"\\([0-9]+),?([0-9]*)\\")
             refs = refs.replace(self.footnotes)
             refs = refs.fillna("")
             s = refs[0] + ":::" + refs[1]
@@ -920,7 +961,7 @@ class Table():
             row_levels[f"row_ref_note_{x+1}"] = s
             
             # delete footnote from row_level_x
-            new_col = col.str.replace(r"\\([0-9]),?([0-9])?\\", "").str.strip()
+            new_col = col.str.replace(r"\\([0-9]+),?([0-9]*)\\", "").str.strip()
             row_levels[f"row_level_{x+1}"] = new_col
         
         row_levels = row_levels.fillna("")

@@ -28,6 +28,7 @@ ethnic-ities,ethnicities
 expen-ditures,expenditures
 expendi-ture,expenditure 
 Forprofit,For-profit
+Fulltime,Full-time
 His-panic,Hispanic
 In-terest,Interest
 Indepen-dent,Independent
@@ -46,9 +47,13 @@ Non-profit,Nonprofit
 Nonresi-dent,Nonresident
 opera-tions,operations
 out-lay,outlay
+Parttime,Part-time
 Per-cent ,Percent 
 per-centile,percentile
 per-manent,permanent
+percen-tile,percentile
+percent-age,percentage
+Postbaccalaureate,Post-baccalaureate
 Pre-kindergarten,Prekindergarten
 Prekin-dergar-ten,Prekindergarten
 Prekin-dergarten,Prekindergarten
@@ -56,16 +61,16 @@ Prekinder-garten,Prekindergarten
 Profes-sor,Professor
 Re-mote,Remote
 resi-dent,resident
-Secon-dary ,Secondary
+secon-dary,secondary
+Secon-dary,Secondary
 Second-ary,Secondary
 ser-vice,service
+Stu-dent,Student
 Stu-dents,Students
 sup-port,support
 transpor-tation,transportation
 univer-sity,university
-Stu-dent,Student
-percent-age,percentage
-Parrtime,Part-time
-Fulltime,Full-time
-Postbaccalaureate,Post-baccalaureate
-percen-tile,percentile
+(col. 3 col. 4),(col. 3 - col. 4)
+(col. 2 col. 4),(col. 2 - col. 4)
+(col. 8 col. 7),(col. 8 - col. 7)
+"secon-dary,","secondary,"
