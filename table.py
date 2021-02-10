@@ -6,6 +6,7 @@ import re
 
 # Table class
 
+
 class Table():
     ROW_LEVELS = 7
     COL_LEVELS = 7
@@ -39,7 +40,7 @@ class Table():
         # Table Row dataframe
         self.end_row = self.get_row_end()
         self.row_info = self.parse_row_info()
-    
+
         # Table Info dataframe
         self.table_info = self.parse_table_info()
 
@@ -52,14 +53,13 @@ class Table():
         # removed
         # adds value_represents to col_info or cell_info
         # self.find_value_represents()
-        
+
         # clean up row_info footnotes
         self.clean_up_rowinfo()
 
         # gets location values of the table
         # sets table.info.location_in, row_info.location and/or col_info.location_type
         self.find_location()
-
 
         # drop if all null
         self.drop_if_all_null()
@@ -84,7 +84,7 @@ class Table():
         self.fix_multicell_rows()
 
         # fix 236.30 jurisdictions
-        self.fix_jurisdictions()
+        # self.fix_jurisdictions()
 
         # remove spec char columns
         self.remove_spec_char()
@@ -132,42 +132,36 @@ class Table():
         # fix is_total in 203.65 and 303.30
         self.fix_is_total()
 
-    
-
-    
-
     def fix_is_total(self):
         if self.id == "203.65":
             is_total = self.row_info['row_level_2'].str.strip() == 'Total'
             self.row_info['is_total'] = is_total
         if self.id == '303.40':
-            self.row_info.loc[29:, 'row_level_4'] = self.row_info.loc[29:, 'row_level_3'].values
-            self.row_info.loc[29:, 'row_level_3'] = self.row_info.loc[29:, 'row_level_2'].values
-            self.row_info.loc[29:, 'row_level_2'] = self.row_info.loc[29:, 'row_level_1'].values
+            self.row_info.loc[29:, 'row_level_4'] = self.row_info.loc[29:,
+                                                                      'row_level_3'].values
+            self.row_info.loc[29:, 'row_level_3'] = self.row_info.loc[29:,
+                                                                      'row_level_2'].values
+            self.row_info.loc[29:, 'row_level_2'] = self.row_info.loc[29:,
+                                                                      'row_level_1'].values
             self.row_info.loc[29:, 'row_level_1'] = 'All students'
 
             is_bold = []
-            for i in range(5,77):
-                cell_xf = self.sheet.cell(i,0).xf_index
+            for i in range(5, 77):
+                cell_xf = self.sheet.cell(i, 0).xf_index
                 font_index = self.book.xf_list[cell_xf].font_index
                 is_bold.append(self.font[font_index].bold)
-            
-            is_total = ['TRUE' if x==1 else 'FALSE' for x in is_bold]
+
+            is_total = ['TRUE' if x == 1 else 'FALSE' for x in is_bold]
 
             self.row_info['is_total'] = is_total
-
-    
 
     def remove_col(self):
         if self.id == "213.10":
             self.col_info['column_level_2'] = self.col_info['column_level_3']
             self.col_info['column_level_3'] = ""
 
-    
-
     def remove_levels(self):
         pass
-    
 
     def add_subtitle_footnote(self):
         col = self.table_info["digest_table_sub_title"]
@@ -177,10 +171,14 @@ class Table():
         s = refs[0] + ":::" + refs[1]
         s = s.replace(r":::$", "", regex=True)
         self.table_info.insert(4, 'digest_table_sub_title_note', s)
-        self.table_info = self.table_info.replace(r"\\([0-9]),?([0-9])?\\", "", regex=True)
-        self.row_info = self.row_info.replace(r"\\([0-9]),?([0-9])?\\", "", regex=True)
-        self.col_info = self.col_info.replace(r"\\([0-9]),?([0-9])?\\", "", regex=True)
-        self.cell_info = self.cell_info.replace(r"\\([0-9]),?([0-9])?\\", "", regex=True)
+        self.table_info = self.table_info.replace(
+            r"\\([0-9]),?([0-9])?\\", "", regex=True)
+        self.row_info = self.row_info.replace(
+            r"\\([0-9]),?([0-9])?\\", "", regex=True)
+        self.col_info = self.col_info.replace(
+            r"\\([0-9]),?([0-9])?\\", "", regex=True)
+        self.cell_info = self.cell_info.replace(
+            r"\\([0-9]),?([0-9])?\\", "", regex=True)
 
     def remove_ellipsis(self):
         self.table_info = self.table_info.replace(' …', '', regex=True)
@@ -193,8 +191,6 @@ class Table():
         self.col_info = self.col_info.replace('…', '', regex=True)
         self.cell_info = self.cell_info.replace('…', '', regex=True)
 
-
-
     def replace_slash_space(self):
         """Replaces all instances of '/ ' with '/' """
 
@@ -202,14 +198,13 @@ class Table():
         self.row_info = self.row_info.replace(r"/ ", "/", regex=True)
         self.col_info = self.col_info.replace(r"/ ", "/", regex=True)
 
-
-
     def clean_hyphens_dict(self):
         """Cleans hyphens out of all tables based on provided dictionary"""
 
         try:
             hyphen_df = pd.read_csv("scraping_dictionary.csv")
-            hyphen_dict = dict(zip(hyphen_df['hyphenated'], hyphen_df['corrected']))
+            hyphen_dict = dict(
+                zip(hyphen_df['hyphenated'], hyphen_df['corrected']))
 
             self.table_info = self.table_info.replace(hyphen_dict, regex=True)
             self.row_info = self.row_info.replace(hyphen_dict, regex=True)
@@ -219,27 +214,23 @@ class Table():
         except FileNotFoundError:
             print("scraping_dictionary.csv is missing!")
 
-
-
     def order_cols(self):
         cols = [
-            'digest_table_id', 'digest_table_year', 'digest_table_sub_id', 'digest_table_sub_title', 
-            'column_index', 'is_standard_error', 'is_dollar', 'format_string', 'year', 'location', 'location_type', 
-            'column_level_1', 'column_level_2', 'column_level_3', 'column_level_4', 'column_level_5', 
-            'column_level_6', 'column_level_7', 'column_ref_note_1', 'column_ref_note_2', 'column_ref_note_3', 
+            'digest_table_id', 'digest_table_year', 'digest_table_sub_id', 'digest_table_sub_title',
+            'column_index', 'is_standard_error', 'is_dollar', 'format_string', 'year', 'location', 'location_type',
+            'column_level_1', 'column_level_2', 'column_level_3', 'column_level_4', 'column_level_5',
+            'column_level_6', 'column_level_7', 'column_ref_note_1', 'column_ref_note_2', 'column_ref_note_3',
             'column_ref_note_4', 'column_ref_note_5', 'column_ref_note_6', 'column_ref_note_7'
-            ]
-        
+        ]
+
         self.col_info = self.col_info[cols]
-
-
 
     def add_col_is_total(self):
         self.col_info.insert(6, 'is_total', 'FALSE')
 
     def add_standard_error(self):
         self.col_info.insert(6, 'is_standard_error', 'FALSE')
-        self.cell_info.insert(4,'is_standard_error', 'FALSE')
+        self.cell_info.insert(4, 'is_standard_error', 'FALSE')
 
     def add_is_dollar(self):
         self.col_info.insert(6, 'is_dollar', '')
@@ -249,16 +240,14 @@ class Table():
         self.col_info.insert(6, 'format_string', '')
         self.cell_info.insert(6, 'format_string', '')
 
-
     def add_has_SE(self):
         has_SE = 'FALSE'
         if self.table_info['headnote'].values[0] == '[Standard errors appear in parentheses]':
             has_SE = 'TRUE'
         self.table_info.insert(4, 'has_SE', has_SE)
-    
+
     def remove_spec_char(self):
         pass
-
 
     def clean_whitespace(self):
         self.table_info = self.table_info.replace(r"\s+", " ", regex=True)
@@ -275,7 +264,6 @@ class Table():
     def clean_empty_paren(self):
         self.row_info = self.row_info.replace(r"\(\)", "", regex=True)
 
-
     def drop_if_all_null(self):
         self.table_info = self.table_info.dropna(axis=1, how="all")
         self.row_info = self.row_info.dropna(axis=1, how="all")
@@ -289,50 +277,56 @@ class Table():
         self.col_info = self.col_info.astype(str)
         self.cell_info = self.cell_info.astype(str)
 
-
     def clean_up_rowinfo(self):
-        self.row_info = self.row_info.replace(r"(.*)\\[0-9]\\", r"\1", regex=True)
-        self.row_info = self.row_info.replace(r"(.*)\\[0-9],[0-9]\\", r"\1", regex=True)
+        self.row_info = self.row_info.replace(
+            r"(.*)\\[0-9]\\", r"\1", regex=True)
+        self.row_info = self.row_info.replace(
+            r"(.*)\\[0-9],[0-9]\\", r"\1", regex=True)
         self.row_info = self.row_info.replace(r"(.*)!$", r"\1", regex=True)
 
     def add_subtables_to_col(self):
         """Adds subtable id and subtable title to col_info dataframe"""
-        sub_tables = self.row_info[['digest_table_sub_id', 'digest_table_sub_title']].drop_duplicates()
-        
+        sub_tables = self.row_info[[
+            'digest_table_sub_id', 'digest_table_sub_title']].drop_duplicates()
+
         df_list = []
 
         for index, row in sub_tables.iterrows():
             df = self.col_info.copy()
             df.insert(2, 'digest_table_sub_id', row['digest_table_sub_id'])
-            df.insert(3, 'digest_table_sub_title', row['digest_table_sub_title'])
+            df.insert(3, 'digest_table_sub_title',
+                      row['digest_table_sub_title'])
             df_list.append(df)
-        
+
         self.col_info = pd.concat(df_list)
 
     def fix_multicell_rows(self):
         # specific table fix, until general solution is needed
         if self.id == "217.15":
-            self.row_info.loc[13:18, 'row_level_1'] = 'Framing, floors, foundations--percent of schools with plans'
-            self.row_info.loc[63:68, 'row_level_1'] = 'Ventilation/filtration system--percent of schools with plans'
-            self.row_info.loc[113:118, 'row_level_1'] = 'Internal communication systems--percent of schools with plans'
+            self.row_info.loc[13:18,
+                              'row_level_1'] = 'Framing, floors, foundations--percent of schools with plans'
+            self.row_info.loc[63:68,
+                              'row_level_1'] = 'Ventilation/filtration system--percent of schools with plans'
+            self.row_info.loc[113:118,
+                              'row_level_1'] = 'Internal communication systems--percent of schools with plans'
             self.row_info['row_level_2'] = self.row_info['row_level_3']
             self.row_info['row_level_3'] = self.row_info['row_level_4']
             self.row_info['row_level_4'] = ''
-
 
     def fix_jurisdictions(self):
         # specific fixed, until general solution needed
         if self.id == "236.30":
             self.row_info.loc[70:74, 'row_level_1'] = "Other jurisdictions"
-            self.row_info.loc[70:74, 'row_level_2'] = self.row_info.loc[70:74, 'row_level_3']
+            self.row_info.loc[70:74,
+                              'row_level_2'] = self.row_info.loc[70:74, 'row_level_3']
             self.row_info.loc[70:74, 'row_level_3'] = ''
-
 
     def find_value_represents(self):
         """Adds value_represents to col_info and cell_info"""
-        
-        val_rep = self.col_info.apply(lambda row: self.get_value_represents(row), axis=1)
-        self.col_info.insert(5,'value_represents', val_rep)
+
+        val_rep = self.col_info.apply(
+            lambda row: self.get_value_represents(row), axis=1)
+        self.col_info.insert(5, 'value_represents', val_rep)
 
     def get_value_represents(self, row):
         """Calculate value_represents value given row"""
@@ -375,7 +369,6 @@ class Table():
             return "Percentage"
         return "Not Found"
 
-
     def find_location(self):
         """finds and sets location_in, location, and location type"""
 
@@ -407,34 +400,34 @@ class Table():
 
         # location variable should be set to lowest level row_level
         if location_in == "Row" and stub_head == "Region and year":
-            self.row_info['location'] = self.row_info.apply(self.lowest_level, axis=1)
+            self.row_info['location'] = self.row_info.apply(
+                self.lowest_level, axis=1)
             self.row_info['location_type'] = "Region"
         elif location_in == "Row":
-            self.row_info['location'] = self.row_info.apply(self.lowest_level, axis=1)
+            self.row_info['location'] = self.row_info.apply(
+                self.lowest_level, axis=1)
 
             # fixes issue with 'United States' appearing in the is_total row of table
             # is_total = self.row_info['is_total'] == 'TRUE'
             # self.row_info.loc[is_total, 'row_level_2'] = self.row_info.loc[is_total, 'row_level_1']
-            
+
             # self.row_info.loc[is_total, 'location'] = self.row_info.loc[is_total, 'row_level_1']
 
-            self.row_info['location_type'] =  stub_head
-        
+            self.row_info['location_type'] = stub_head
+
         if (location_in not in ['Row', 'Column']):
             location_in = "Title"
             self.table_info['location_in'] = location_in
             self.table_info['location'] = "United States"
             self.table_info['location_type'] = "Region"
 
-
     def lowest_level(self, row):
         location = ""
-        row_levels = [f"row_level_{x}" for x in range(1,8)]
+        row_levels = [f"row_level_{x}" for x in range(1, 8)]
         for row_level in row_levels:
             if row[row_level] != "" and not re.search(r"\s*(\d{4})\s*", row[row_level]):
                 location = row[row_level]
         return location
-
 
     def find_table_year(self):
         """finds and sets year_in, and year values"""
@@ -449,7 +442,7 @@ class Table():
         year = ""
         if year1:
             year = year1.group(1)
-        if year2: 
+        if year2:
             year = year2.group(1)
         if year3:
             year = year3.group(1)
@@ -457,15 +450,14 @@ class Table():
             year = year4.group(1)
         if year5:
             year = year5.group(1)
-            
-        
+
         year_in = ""
         if year1 or year2 or year3 or year4 or year5:
             year_in = "Title"
 
         self.table_info.insert(5, 'year_in', year_in)
         self.table_info.insert(6, 'year', year)
-        self.row_info.insert(20,'year', '')
+        self.row_info.insert(20, 'year', '')
         self.col_info.insert(6, 'year', '')
 
         # finds rows matching year format
@@ -475,7 +467,7 @@ class Table():
 
             for index, row in self.row_info.iterrows():
                 year_col.append(self.get_year(row[row_list]))
-            
+
             year_series = pd.Series(year_col)
             year_series = year_series.replace('', np.nan)
 
@@ -486,7 +478,8 @@ class Table():
 
         # finds cols matching year format
         if year_in == "":
-            col_list = [f"column_level_{i+1}" for i in range(0, self.COL_LEVELS)]
+            col_list = [
+                f"column_level_{i+1}" for i in range(0, self.COL_LEVELS)]
             year_col = []
 
             for index, row in self.col_info.iterrows():
@@ -499,12 +492,10 @@ class Table():
                 year_in = "Column"
                 self.col_info['year'] = year_col
                 self.table_info['year_in'] = year_in
-        
+
         if year_in == "":
             year_in = "Title"
             self.table_info['year_in'] = year_in
-
-
 
     def get_year(self, series):
         """Helper function to get year matches from a series"""
@@ -522,13 +513,12 @@ class Table():
 
         years_df = pd.concat([
             year1, year2, year3, year4, year5, year6, year7, year8, year9, year10
-            ], axis=1)
+        ], axis=1)
 
-        years_series = years_df.apply(lambda x: ','.join(x.dropna().astype(str)),axis=1)
-        
+        years_series = years_df.apply(
+            lambda x: ','.join(x.dropna().astype(str)), axis=1)
+
         return ''.join(years_series).split(',')[-1]
-
-
 
     def find_SE(self):
         """finds and sets has_SE"""
@@ -536,24 +526,22 @@ class Table():
 
     def get_id(self):
         tnum = ""
-        res = re.search(r"tabn(\d{3}\.\d{2})\.xls", self.filename)
+        res = re.search(r"tabn(\d{3}\.\d{2}[a-z]?)\.xls", self.filename)
 
         if res:
             tnum = res.group(1)
 
         return tnum
 
-
     def get_out_filename(self):
         tab_id = self.id.replace(".", "_")
 
         return f"output/{self.year}_{tab_id}_activate_step1.xlsx"
 
-
     def get_title(self):
 
         # removing newline characters
-        title_cell = self.sheet.cell_value(0,0).replace("\n", "")
+        title_cell = self.sheet.cell_value(0, 0).replace("\n", "")
 
         # replace repeated whitespace with a single space
         title_cell = re.sub(" +", " ", title_cell)
@@ -563,37 +551,34 @@ class Table():
 
         if res:
             title = res.group(2)
-        
-        return title
 
+        return title
 
     def get_title_lines(self):
         tlines = 1
 
-        if re.match(r"\s*\[.*\]\s*", self.sheet.cell_value(1,0)):
+        if re.match(r"\s*\[.*\]\s*", self.sheet.cell_value(1, 0)):
             tlines = 2
 
         return tlines
 
-
     def AA(self, num, string):
         """Recursively builds column index
-        
+
         Inspired by from this Stackoverflow answer:
         https://stackoverflow.com/a/54837286
         """
-        
+
         r = num % 26
         num = (num - r) // 26
         string = chr(ord("A") + r) + string
-        
+
         if num > 26:
             string = self.AA(num, string)
         elif num > 0:
             string = chr(ord("A") + num - 1) + string
-            
+
         return string
-    
 
     def parse_table_info(self):
         """Returns table_info dataframe"""
@@ -603,10 +588,10 @@ class Table():
         tlines = self.title_lines
 
         # headnote
-        headnote = sh.cell_value(1,0) if tlines == 2 else ""
+        headnote = sh.cell_value(1, 0) if tlines == 2 else ""
 
         # stub_head
-        stub_head = sh.cell_value(tlines,0)
+        stub_head = sh.cell_value(tlines, 0)
 
         # general_note
         general_note = ""
@@ -622,8 +607,8 @@ class Table():
         last_prepared = source[1].values[0].strip()
 
         col_list = [
-            'digest_table_id', 
-            'digest_table_year', 
+            'digest_table_id',
+            'digest_table_year',
             'digest_table_sub_id',
             'digest_table_sub_title',
             'table_title',
@@ -635,9 +620,9 @@ class Table():
         ]
 
         g = self.row_info.groupby([
-            'digest_table_sub_id', 
+            'digest_table_sub_id',
             'digest_table_sub_title'
-            ]).size().reset_index()
+        ]).size().reset_index()
 
         tb_info = g[['digest_table_sub_id', 'digest_table_sub_title']]
 
@@ -657,13 +642,12 @@ class Table():
     def get_header_lines(self):
         """Returns the index of the last row of the header"""
 
-        for row in range(0,self.sheet.nrows):
-            if self.sheet.cell_value(row,0) == 1:
+        for row in range(0, self.sheet.nrows):
+            if self.sheet.cell_value(row, 0) == 1 or self.sheet.cell_value(row, 0) == "1":
                 return row
-            
+
         print("End of file reached, no integer row")
         return 0
-    
 
     # def is_empty(self, series):
     #     """Returns True if row or column is empty"""
@@ -673,24 +657,22 @@ class Table():
     #     else:
     #         return (series.isna() | series.str.match(r"\W")).all()
 
-
     # def get_nonempty_cols(self):
     #     cols = [not self.is_empty(self.raw_df.iloc[:, col]) for col in range(0, self.sheet.ncols)]
     #     return list(self.raw_df.loc[:, cols].columns)
-
 
     def get_header(self):
 
         # get list of non-empty columns
         # cols = self.get_nonempty_cols()
-        cols = list(range(0,self.sheet.ncols))
+        cols = list(range(0, self.sheet.ncols))
 
         header = pd.read_excel(self.filename,
-                                skiprows=self.title_lines,
-                                header=None,
-                                nrows=self.header_lines - self.title_lines,
-                                usecols=cols
-                                )
+                               skiprows=self.title_lines,
+                               header=None,
+                               nrows=self.header_lines - self.title_lines,
+                               usecols=cols
+                               )
 
         # drop the first column
         header = header.iloc[:, 1:]
@@ -698,16 +680,15 @@ class Table():
         header = header.ffill(axis=0).ffill(axis=1)
         return pd.MultiIndex.from_arrays(header.values)
 
-
     def get_footnotes(self):
         """Returns footnotes dict"""
 
         df = self.raw_df
 
         # Extract footnotes from raw df
-        footnotes = df[0].str.extract(r"\\([0-9]+)\\(.*)").dropna().set_index(0)
+        footnotes = df[0].str.extract(
+            r"\\([0-9]+)\\(.*)").dropna().set_index(0)
         return footnotes.to_dict()[1]
-
 
     def get_special_notes(self):
         """Returns special notes dict"""
@@ -716,10 +697,10 @@ class Table():
         # footnotes = df[0].str.extract(r"\\([0-9])\\(.*)").dropna().set_index(0)
         # symbols = [
         #     '---', '(---)',
-        #     '†', '(†)', 
-        #     '#', '(#)', 
-        #     '!', 
-        #     '‡', 
+        #     '†', '(†)',
+        #     '#', '(#)',
+        #     '!',
+        #     '‡',
         #     '*'
         #     ]
 
@@ -740,19 +721,17 @@ class Table():
         paren_entries = {}
         for entry in spec_dict:
             paren_entries['(' + entry + ')'] = spec_dict[entry]
-    
+
         spec_dict.update(paren_entries)
 
         return spec_dict
-
-
 
     def parse_col_info(self):
         """Returns dataframe with column information"""
 
         header = self.get_header()
         footnotes_dict = self.get_footnotes()
-        
+
         # remove duplicated column levels
         col_info = header.to_frame(index=False)
         is_duplicate = col_info.apply(lambda row: row.duplicated(), axis=1)
@@ -761,10 +740,11 @@ class Table():
         # create extra columns for unused columns index levels
         for n in range(col_info.shape[1], self.COL_LEVELS):
             col_info.insert(n, n, "")
-        
+
         # label column levels
-        col_info.columns = [f"column_level_{col+1}" for col in col_info.columns]
-        
+        col_info.columns = [
+            f"column_level_{col+1}" for col in col_info.columns]
+
         # add table_id and table_year to col_info
         col_info["digest_table_id"] = self.id
         col_info["digest_table_year"] = self.year
@@ -786,21 +766,21 @@ class Table():
 
         for x in range(0, self.COL_LEVELS):
             col = col_info[f"column_level_{x+1}"].astype(str)
-            
+
             # create a reference column with the footnote number
             refs = col.str.extract(r"\\([0-9]+),?([0-9]*)\\")
             refs = refs.replace(self.footnotes)
             refs = refs.fillna("")
             s = refs[0] + ":::" + refs[1]
-            s = s.replace(regex = r":::$", value = "")
-            
+            s = s.replace(regex=r":::$", value="")
+
             # create new column with the reference note
             col_info[f"column_ref_note_{x+1}"] = s
-            
-            # delete footnote from col_level_x
-            new_col = col.str.replace(r"\\([0-9]+),?([0-9]*)\\", "").str.strip()
-            col_info[f"column_level_{x+1}"] = new_col
 
+            # delete footnote from col_level_x
+            new_col = col.str.replace(
+                r"\\([0-9]+),?([0-9]*)\\", "").str.strip()
+            col_info[f"column_level_{x+1}"] = new_col
 
         # Remove extra headers
         col_info = col_info.fillna("")
@@ -809,26 +789,27 @@ class Table():
         col_info = col_info.drop_duplicates().reset_index()
 
         # create column_index field
-        col_info["column_index"] = [self.AA(i,"") for i in col_info.index]
+        col_info["column_index"] = [self.AA(i, "") for i in col_info.index]
 
         # list of columns in the desired order
-        col_list = [[f"column_level_{x + 1}", f"column_ref_note_{x + 1}"] for x in range(0,7)]
+        col_list = [
+            [f"column_level_{x + 1}", f"column_ref_note_{x + 1}"] for x in range(0, 7)]
         col_list = list(np.array(col_list).flatten())
 
         # rearrange column order
         col_info = col_info[
-            ['digest_table_id', 'digest_table_year', 'column_index'] + 
+            ['digest_table_id', 'digest_table_year', 'column_index'] +
             col_list
         ]
 
         # strip and replace \n
         for col in range(0, col_info.shape[1]):
-            new_col = col_info.iloc[:,col].str.strip()
+            new_col = col_info.iloc[:, col].str.strip()
             new_col = new_col.str.replace(r"\.\.+", "", regex=True)
             new_col = new_col.str.replace("/\n", "/")
             new_col = new_col.str.replace("\n", " ")
             new_col = new_col.str.replace("- ", "")
-            col_info.iloc[:,col] = new_col
+            col_info.iloc[:, col] = new_col
 
         # remove YYYY.0 from years
         col_info = col_info.replace(r"^(\d{4})\.0$", r"\1", regex=True)
@@ -840,10 +821,12 @@ class Table():
         xf_list = self.book.xf_list
 
         for row in range(self.header_lines + 2, self.sheet.nrows):
-            idx = self.sheet.cell_xf_index(row,0)
+            idx = self.sheet.cell_xf_index(row, 0)
             top_line_style = xf_list[idx].border.top_line_style
             bottom_line_style = xf_list[idx].border.bottom_line_style
 
+            # print(str(row) + ": " + str(self.sheet.cell(row, 0).value) + str(top_line_style) +
+            #       ", " + str(bottom_line_style))
             if top_line_style == 1:
                 return row - 1
             elif bottom_line_style == 1:
@@ -852,16 +835,15 @@ class Table():
         print("Error: No data end row")
         return 0
 
-
     def get_leading_spaces(self, string):
         string = str(string)
         res = re.search(r"[^ ]", string)
-        
+
         if res:
             return res.start()
         else:
             return 0
-    
+
     def parse_row_info(self):
         total_level = 0
         # super_total_level = 0
@@ -869,12 +851,12 @@ class Table():
         indent_level = 0
         rows = self.end_row - self.header_lines
         subtitle = ""
-        
+
         empty = np.empty([rows, self.ROW_LEVELS])
         empty[:] = np.NaN
-        
+
         row_levels = pd.DataFrame(empty,
-                                index=range(self.header_lines+1, self.end_row+1))
+                                  index=range(self.header_lines+1, self.end_row+1))
 
         for row in range(self.header_lines + 1, self.end_row + 1):
             cell = self.sheet.cell(row, 0)
@@ -896,7 +878,8 @@ class Table():
 
             # reset total_level back to 0
             if cell_above_btm_border == 6 or cell_over_top_border == 6:
-                indents_above = self.get_leading_spaces(self.sheet.cell(row-1,0).value)
+                indents_above = self.get_leading_spaces(
+                    self.sheet.cell(row-1, 0).value)
                 if not indents_above == 5:
                     total_level = max(total_level-1, 0)
 
@@ -906,15 +889,14 @@ class Table():
                 cell_value = self.sheet.cell(row-1, 0).value + cell.value
 
             # identifying subtable titles
-            if is_empty and self.sheet.cell(row,1).value.strip() != "":
+            if is_empty and self.sheet.cell(row, 1).value.strip() != "":
                 subtitle = self.sheet.cell(row, 1).value
-            
-            
-            if indents in [0,3,5]:
+
+            if indents in [0, 3, 5]:
                 indent_level = 0
             else:
                 indent_level = indents / 2
-            
+
             # if is_super_total:
             #     super_total_level = max(super_total_level-1, 0)
             #     row_levels.loc[row, "subtitle"] = subtitle
@@ -930,13 +912,15 @@ class Table():
                 bold_level = max(bold_level-1, 0)
                 row_levels.loc[row, "subtitle"] = subtitle
                 row_levels.loc[row, "is_total"] = "FALSE"
-                row_levels.loc[row, total_level+bold_level+indent_level] = cell_value
+                row_levels.loc[row, total_level +
+                               bold_level+indent_level] = cell_value
                 bold_level += 1
-            else: 
+            else:
                 row_levels.loc[row, "subtitle"] = subtitle
                 row_levels.loc[row, "is_total"] = "FALSE"
-                row_levels.loc[row, total_level+max(bold_level, indent_level)] = cell_value
-        
+                row_levels.loc[row, total_level +
+                               max(bold_level, indent_level)] = cell_value
+
         # forward fill row levels
         row_levels = row_levels.replace('', np.nan)
         row_levels = row_levels.ffill(axis=1).ffill(axis=0)
@@ -944,66 +928,69 @@ class Table():
         row_levels = row_levels.where(~is_duplicate, "")
 
         # rename columns
-        row_levels.columns = [f"row_level_{col+1}" for col in range(0,7)] + ["digest_table_sub_title", "is_total"]
-        
+        row_levels.columns = [
+            f"row_level_{col+1}" for col in range(0, 7)] + ["digest_table_sub_title", "is_total"]
+
         # create row_ref_note columns
         for x in range(0, self.ROW_LEVELS):
             col = row_levels[f"row_level_{x+1}"].astype(str)
-            
+
             # create a reference column with the footnote number
             refs = col.str.extract(r"\\([0-9]+),?([0-9]*)\\")
             refs = refs.replace(self.footnotes)
             refs = refs.fillna("")
             s = refs[0] + ":::" + refs[1]
-            s = s.replace(regex = r":::$", value = "")
-            
+            s = s.replace(regex=r":::$", value="")
+
             # create new column with the reference note
             row_levels[f"row_ref_note_{x+1}"] = s
-            
+
             # delete footnote from row_level_x
-            new_col = col.str.replace(r"\\([0-9]+),?([0-9]*)\\", "").str.strip()
+            new_col = col.str.replace(
+                r"\\([0-9]+),?([0-9]*)\\", "").str.strip()
             row_levels[f"row_level_{x+1}"] = new_col
-        
+
         row_levels = row_levels.fillna("")
 
         # generate subtable ids
         subtable_titles = row_levels['digest_table_sub_title'].unique()
         subtable_ids = [self.AA(i, "") for i in range(0, len(subtable_titles))]
         subtable_dict = dict(zip(subtable_titles, subtable_ids))
-        row_levels['digest_table_sub_id'] = row_levels['digest_table_sub_title'].replace(subtable_dict)
-
+        row_levels['digest_table_sub_id'] = row_levels['digest_table_sub_title'].replace(
+            subtable_dict)
 
         # table id and year
         row_levels["digest_table_id"] = self.id
         row_levels["digest_table_year"] = self.year
-        
+
         # list of columns in the desired order
-        col_list = [[f"row_level_{x + 1}", f"row_ref_note_{x + 1}"] for x in range(0,7)]
+        col_list = [[f"row_level_{x + 1}",
+                     f"row_ref_note_{x + 1}"] for x in range(0, 7)]
         col_list = list(np.array(col_list).flatten())
 
         # rearrange column order
         row_levels = row_levels[
             [
-                'digest_table_id', 
-                'digest_table_year', 
+                'digest_table_id',
+                'digest_table_year',
                 'digest_table_sub_id',
                 'digest_table_sub_title',
-            ] + 
+            ] +
             col_list +
             ['is_total']
         ]
 
         # strip and replace \n
         for col in range(0, row_levels.shape[1]):
-            new_col = row_levels.iloc[:,col].str.strip()
+            new_col = row_levels.iloc[:, col].str.strip()
             new_col = new_col.str.replace(r"\.\.+", "", regex=True)
             new_col = new_col.str.replace("\n", " ")
             new_col = new_col.str.replace("- ", "")
-            row_levels.iloc[:,col] = new_col
+            row_levels.iloc[:, col] = new_col
 
         # Clean up footnotes columns
         df_fn = self.raw_df.loc[:, 1:].copy()
-        fn_cols = df_fn.apply(lambda x: self.is_fn_col(x), axis=0) 
+        fn_cols = df_fn.apply(lambda x: self.is_fn_col(x), axis=0)
 
         for i in fn_cols.index:
             if fn_cols[i]:
@@ -1011,16 +998,15 @@ class Table():
                 prev_col = df_fn.loc[:, i-1].fillna("").astype(str)
                 df_fn.loc[:, i-1] = prev_col + fn_col
 
-
         # Clean up special note columns
-        sn_cols = df_fn.apply(lambda x: self.is_spec_note_col(x), axis=0) 
+        sn_cols = df_fn.apply(lambda x: self.is_spec_note_col(x), axis=0)
 
         for i in sn_cols.index:
             if sn_cols[i]:
                 sn_col = df_fn.loc[:, i].fillna("")
                 prev_col = df_fn.loc[:, i-1].fillna("").astype(str)
                 df_fn.loc[:, i-1] = prev_col + sn_col
-        
+
         # remove footnote only cols
         df_fn = df_fn.loc[:, ~fn_cols]
 
@@ -1033,38 +1019,37 @@ class Table():
         df_fn.columns = range(0, df_fn.shape[1])
 
         # merge with row data and rename columns
-        df = pd.merge(row_levels, df_fn, how='left', left_index=True, right_index=True)
-        col_names = list(range(0,df_fn.shape[1]))
+        df = pd.merge(row_levels, df_fn, how='left',
+                      left_index=True, right_index=True)
+        col_names = list(range(0, df_fn.shape[1]))
         col_names_new = [self.AA(i, "") for i in range(0, df_fn.shape[1])]
         col_names_dict = dict(zip(col_names, col_names_new))
         df = df.rename(columns=col_names_dict)
 
         # drop row if all NaN in data
-        drop_rows = df.loc[:, 'B':].apply(lambda x: self.na_or_empty(x), axis=1)
+        drop_rows = df.loc[:, 'B':].apply(
+            lambda x: self.na_or_empty(x), axis=1)
         df = df[~drop_rows]
 
         # drop_cols = df.loc[:, 'A':].apply(lambda x: self.na_or_empty(x), axis=0)
         # df = df.loc[:, ~drop_cols]
 
-
         # drop row if contains NaN
         # df = df.dropna()
 
         # create row index
-        df.insert(4, 'row_index', np.arange(1,df.shape[0]+1))
+        df.insert(4, 'row_index', np.arange(1, df.shape[0]+1))
 
         # remove YYYY.0 from years
         df = df.replace(r"^(\d{4})\.0$", r"\1", regex=True)
 
         return df
 
-
     def na_or_empty(self, row):
-        is_na = row.isna() 
+        is_na = row.isna()
         is_space = row.astype(str).str.match(r"^\s*$")
         is_empty = (is_na | is_space).all()
         return is_empty
-    
 
     def is_fn_col(self, col):
         """col contains only footnotes"""
@@ -1074,7 +1059,6 @@ class Table():
         """col contains only special notes"""
         return col.str.match(r"!").any()
 
-    
     def parse_cell_info(self):
 
         data = self.row_info.loc[:, 'A':]
@@ -1094,19 +1078,19 @@ class Table():
 
         for row in data.index:
             for col in data.columns:
-                
+
                 cell_val = str(data.loc[row, col]).strip()
-                
+
                 has_fn = re.match(r".*\\([0-9])\\", cell_val)
                 has_multi_fn = re.match(r".*\\([0-9]),([0-9])\\", cell_val)
                 is_spec = cell_val in list(symbol_dict.keys())
                 has_exclam = re.match(r".*!$", cell_val)
-                
+
                 cell_note_1 = ""
                 cell_note_2 = ""
                 # ref_note = ""
                 # spec_note = ""
-                
+
                 if has_fn:
                     cell_note_1 = has_fn.group(1)
                 if has_multi_fn:
@@ -1118,47 +1102,45 @@ class Table():
                     cell_note_1 = 'Interpret data with caution. The coefficient of variation (CV) for this estimate is between 30 and 50 percent.'
                 if has_fn or is_spec or has_exclam:
                     l = list(self.row_info.loc[row, ['digest_table_id',
-                                    'digest_table_year',
-                                    'digest_table_sub_id',
-                                    'digest_table_sub_title',
-                                    'row_index']].values) + [col, cell_note_1]
+                                                     'digest_table_year',
+                                                     'digest_table_sub_id',
+                                                     'digest_table_sub_title',
+                                                     'row_index']].values) + [col, cell_note_1]
                     df_row = pd.DataFrame(l, index=col_list).T
                     cell_info = cell_info.append(df_row, ignore_index=True)
                 if has_multi_fn:
                     l1 = list(self.row_info.loc[row, ['digest_table_id',
-                                    'digest_table_year',
-                                    'digest_table_sub_id',
-                                    'digest_table_sub_title',
-                                    'row_index']].values) + [col, cell_note_1]
+                                                      'digest_table_year',
+                                                      'digest_table_sub_id',
+                                                      'digest_table_sub_title',
+                                                      'row_index']].values) + [col, cell_note_1]
                     df_row = pd.DataFrame(l1, index=col_list).T
                     cell_info = cell_info.append(df_row, ignore_index=True)
 
                     l2 = list(self.row_info.loc[row, ['digest_table_id',
-                                    'digest_table_year',
-                                    'digest_table_sub_id',
-                                    'digest_table_sub_title',
-                                    'row_index']].values) + [col, cell_note_2]
+                                                      'digest_table_year',
+                                                      'digest_table_sub_id',
+                                                      'digest_table_sub_title',
+                                                      'row_index']].values) + [col, cell_note_2]
                     df_row = pd.DataFrame(l2, index=col_list).T
                     cell_info = cell_info.append(df_row, ignore_index=True)
 
-        
         # replaces single footnote cells
         cell_info['cell_note'] = cell_info['cell_note'].replace(self.footnotes)
 
         return cell_info
 
-
     def write_xlsx(self):
         """Writes to output file"""
 
-        with pd.ExcelWriter(self.out_filename) as writer: #pylint: disable=abstract-class-instantiated
-            
+        with pd.ExcelWriter(self.out_filename) as writer:  # pylint: disable=abstract-class-instantiated
+
             # table info
             table_info = self.table_info.T.reset_index().T
 
             table_info.to_excel(
-                writer, 
-                sheet_name="table_info", 
+                writer,
+                sheet_name="table_info",
                 index=False,
                 header=False
             )
@@ -1177,7 +1159,7 @@ class Table():
             col_info = self.col_info.T.reset_index().T
 
             col_info.to_excel(
-                writer, 
+                writer,
                 sheet_name="column_info",
                 index=False,
                 header=False
@@ -1186,7 +1168,7 @@ class Table():
             cell_info = self.cell_info.T.reset_index().T
 
             cell_info.to_excel(
-                writer, 
+                writer,
                 sheet_name="cell_info",
                 index=False,
                 header=False
@@ -1196,11 +1178,11 @@ class Table():
 if __name__ == "__main__":
     directory = "100tables/"
     for filename in os.listdir(directory):
-        try: 
+        try:
             if filename.endswith(".xls"):
                 file_directory = os.path.join(directory, filename)
                 table = Table(file_directory, "2019")
                 print(table.id)
                 table.write_xlsx()
         except:
-            print('An error occurred')
+            print('An error occurred in ' + filename)
