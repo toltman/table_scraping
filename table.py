@@ -132,6 +132,13 @@ class Table():
         # fix is_total in 203.65 and 303.30
         self.fix_is_total()
 
+        # manually clean up 315.10
+        self.fix_315_10()
+
+    def fix_315_10(self):
+        if self.id == "315.10":
+            self.col_info.loc[3, 'column_level_3'] = ''
+
     def fix_is_total(self):
         if self.id == "203.65":
             is_total = self.row_info['row_level_2'].str.strip() == 'Total'
@@ -154,6 +161,32 @@ class Table():
             is_total = ['TRUE' if x == 1 else 'FALSE' for x in is_bold]
 
             self.row_info['is_total'] = is_total
+
+        if self.id == '330.30':
+            self.row_info.loc[13:18,
+                              'row_level_3'] = self.row_info.loc[13:18, 'row_level_2'].values
+            self.row_info.loc[20:25,
+                              'row_level_3'] = self.row_info.loc[20:25, 'row_level_2'].values
+            self.row_info.loc[34:39,
+                              'row_level_3'] = self.row_info.loc[34:39, 'row_level_2'].values
+            self.row_info.loc[41:46,
+                              'row_level_3'] = self.row_info.loc[41:46, 'row_level_2'].values
+            self.row_info.loc[55:60,
+                              'row_level_3'] = self.row_info.loc[41:46, 'row_level_2'].values
+            self.row_info.loc[62:67,
+                              'row_level_3'] = self.row_info.loc[62:67, 'row_level_2'].values
+
+            self.row_info.loc[13:18, 'row_level_2'] = 'Public 4-year'
+            self.row_info.loc[20:25, 'row_level_2'] = 'Public 2-year'
+            self.row_info.loc[34:39, 'row_level_2'] = 'Nonprofit 4-year'
+            self.row_info.loc[41:46, 'row_level_2'] = 'Nonprofit 2-year'
+            self.row_info.loc[55:60, 'row_level_2'] = 'For-profit 4-year'
+            self.row_info.loc[62:67, 'row_level_2'] = 'For-profit 2-year'
+
+            self.row_info.loc[13:18,
+                              'row_ref_note_2'] = 'Average undergraduate tuition and fees are based on in-state students only.'
+            self.row_info.loc[20:25,
+                              'row_ref_note_2'] = 'Average undergraduate tuition and fees are based on in-state students only.'
 
     def remove_col(self):
         if self.id == "213.10":
@@ -505,14 +538,16 @@ class Table():
         year3 = series.str.extract(r".*(\d{4}-\d{2})\s*$")
         year4 = series.str.extract(r".*(\d{4}–\d{4})")
         year5 = series.str.extract(r".*(\d{4}-\d{4})")
+        year5 = series.str.extract(r".*(\d{4}-\d{2}) \(.*")
         year6 = series.str.extract(r".*(\d{4} to \d{4}).*")
         year7 = series.str.extract(r".*([Ff]all \d{4}).*")
         year8 = series.str.extract(r".*([Ss]pring \d{4}).*$")
         year9 = series.str.extract(r", (\d{4})\s*$")
         year10 = series.str.extract(r".*(\d{4}-\d{2} to \d{4}-\d{2}).*")
+        year11 = series.str.extract(r".*(\d{4}-\d{2}), total$")
 
         years_df = pd.concat([
-            year1, year2, year3, year4, year5, year6, year7, year8, year9, year10
+            year1, year2, year3, year4, year5, year6, year7, year8, year9, year10, year11
         ], axis=1)
 
         years_series = years_df.apply(
