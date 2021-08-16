@@ -11,7 +11,7 @@ class Table():
     ROW_LEVELS = 7
     COL_LEVELS = 7
 
-    def __init__(self, file_directory, year):
+    def __init__(self, file_directory):
         self.filename = file_directory
 
         # Read Excel workbook
@@ -1216,7 +1216,7 @@ if __name__ == "__main__":
         try:
             if filename.endswith(".xls"):
                 file_directory = os.path.join(directory, filename)
-                table = Table(file_directory, "2019")
+                table = Table(file_directory)
                 print(table.id)
                 table.write_xlsx()
         except:
