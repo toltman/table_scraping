@@ -814,7 +814,7 @@ class Table():
 
             # delete footnote from col_level_x
             new_col = col.str.replace(
-                r"\\([0-9]+),?([0-9]*)\\", "").str.strip()
+                r"\\([0-9]+),?([0-9]*)\\", "", regex=True).str.strip()
             col_info[f"column_level_{x+1}"] = new_col
 
         # Remove extra headers
@@ -982,7 +982,7 @@ class Table():
 
             # delete footnote from row_level_x
             new_col = col.str.replace(
-                r"\\([0-9]+),?([0-9]*)\\", "").str.strip()
+                r"\\([0-9]+),?([0-9]*)\\", "", regex=True).str.strip()
             row_levels[f"row_level_{x+1}"] = new_col
 
         row_levels = row_levels.fillna("")
@@ -1024,7 +1024,7 @@ class Table():
             row_levels.iloc[:, col] = new_col
 
         # Clean up footnotes columns
-        df_fn = self.raw_df.loc[:, 1:].copy()
+        df_fn = self.raw_df.loc[:, 1:].copy().fillna('').astype(str)
         fn_cols = df_fn.apply(lambda x: self.is_fn_col(x), axis=0)
 
         for i in fn_cols.index:
